@@ -8,22 +8,37 @@
 
 `````
 課題全体の完成
-├── Milestone 1: 必須機能の実装
-│   ├── Issue: ローカル開発環境と最小の疎通を構築する
+├── Milestone 1: ローカル開発基盤の構築
+│   └── Issue: ローカル開発環境と最小の疎通を構築する
+├── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
+│   ├── Issue: AWSアカウント・IAMユーザーを準備する
+│   ├── Issue: Terraform Stateの保存先を準備する
+│   ├── Issue: Google OAuthアプリを作成する
+│   ├── Issue: GitHub Actionsのシークレットを登録する
+│   ├── Issue: Terraformでアプリ用AWSリソースを構築する
+│   ├── Issue: CIを構築する
+│   ├── Issue: CDを構築する
+│   └── Issue: 最小アプリをデプロイして疎通確認する
+├── Milestone 3: 必須機能の実装
 │   ├── Issue: ログイン機能を実装する（Cognito + Google）
 │   ├── Issue: 投稿機能を実装する
 │   ├── Issue: フォロー機能を実装する
 │   ├── Issue: タイムライン機能を実装する
 │   ├── Issue: エラーハンドリングとUIを改善する
 │   └── Issue: テスト作成
-├── Milestone 2: セキュリティ対策（予定）
-└── Milestone 3: Terraformによるインフラ運用（予定）
-
-Milestone 1の完了後、実装結果や残課題を踏まえて次のMilestoneを追加する。
+└── Milestone 4: 本番環境の構築・運用準備（予定）
+    ├── Issue: 本番環境を構築する
+    ├── Issue: 本番環境のセキュリティを強化する
+    ├── Issue: 監視・ログ・バックアップを整備する
+    └── Issue: 本番環境へのデプロイと動作確認を行う
 `````
 
 - Milestone：関連するIssueを段階ごとにまとめ、各段階の進捗を把握する
 - Issue：個別の作業を管理し、目的・完了条件・検証結果・残課題を記録する
+
+開発は `develop` ブランチを統合ブランチとして進める。Issueごとに作業ブランチを作成し、実装完了後に `develop` へのPull Requestを作成する。Pull Requestでは関連するIssue、変更内容、検証結果を確認する。
+
+提出前には `develop` の内容を `main` に反映し、評価者が `main` ブランチだけで動作確認できる状態にする。
 
 ### AIの活用方針
 
