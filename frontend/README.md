@@ -10,20 +10,29 @@ X風のタイムライン画面を提供するフロントエンドです。
 
 ## 必要な環境
 
-- Node.js 20以上を推奨
-- npm
+- Node.js 20.12.0以上
+- npm（Node.jsに付属）
+
+Node.jsのバージョン確認：
+
+```bash
+node --version
+npm --version
+```
 
 ## 環境構築
 
 frontendディレクトリで以下を実行します。
 
+```bash
+npm ci
 ```
-npm install
-```
+
+`npm ci`は`package-lock.json`に記録された依存関係を利用するため、他の開発者と同じ環境を再現しやすい方法です。
 
 ## 開発サーバーの起動
 
-```
+```bash
 npm run dev
 ```
 
@@ -31,11 +40,30 @@ npm run dev
 
 ## ビルド
 
-```
+```bash
 npm run build
 ```
 
 本番用ファイルがdistディレクトリに生成されます。
+
+## テスト
+
+```bash
+npm run test
+```
+
+ファイル変更を監視しながらテストする場合：
+
+```bash
+npm run test:watch
+```
+
+## コード整形
+
+```bash
+npm run format
+npm run format:check
+```
 
 ## 現在の実装範囲
 
@@ -44,21 +72,30 @@ npm run build
 - 投稿のローカル追加
 - 文字数カウント
 - いいね操作
+- React Routerによる画面遷移
+- フォロー・フォロー解除とフォロー中タブ
 - レスポンシブ表示
 
 現在はモックデータを使用しています。バックエンドAPIとの接続は今後実装します。
 
 ## ディレクトリ構成
 
-```
+```text
 frontend/
 ├── src/
-│   ├── App.tsx          # アプリケーション本体
+│   ├── components/      # 再利用可能なUIコンポーネント
+│   ├── data/            # モックデータ
+│   ├── pages/           # ページ単位のコンポーネント
+│   ├── state/           # Contextなどの共有状態
+│   ├── test/            # テストセットアップ
+│   ├── App.tsx          # ルーティング定義
 │   ├── main.tsx         # エントリーポイント
-│   ├── styles.css       # スタイル
-│   └── vite-env.d.ts    # Viteの型定義
+│   └── styles.css       # スタイル
 ├── index.html
 ├── package.json
+├── package-lock.json
 ├── tsconfig.json
-└── vite.config.ts
+├── vite.config.ts
+├── vitest.config.ts
+└── .prettierrc
 ```
