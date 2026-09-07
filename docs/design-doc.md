@@ -82,6 +82,47 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ## 4. 検討したアーキテクチャ・実装方針の選択肢とトレードオフ
 
+### フロントエンド構成
+
+#### React + Vite
+
+- 構成がシンプルで、フロントエンドとGoバックエンドの責務を分離しやすい
+- SPAとして今回の必須機能を実装できる
+- SSRやServer Componentsを利用しない場合、不要なサーバー層を追加せずに済む
+- SEOやサーバー側での初期レンダリングが必要になった場合は、追加の設計が必要になる
+
+#### Next.js
+
+- SSR、Server Components、ファイルベースルーティングなどを利用できる
+- フロントエンドとサーバー処理を一体として構築できる
+- 今回はGoバックエンドを別に構築するため、Next.js側のサーバー層も導入すると責務や運用対象が増える
+- 現時点で必要としていないSSR、SEO、Next.js側のAPI、Server Componentsのために構成が複雑になる可能性がある
+
+### ルーティング
+
+#### React Router v7
+
+- React + Vite構成に導入しやすい
+- 現時点の画面遷移とURL管理にはDeclarative Modeで十分
+- 将来的にData Modeへ移行し、ルート単位のデータ取得や送信処理を扱える
+
+#### Next.js App Router
+
+- Next.jsのServer ComponentsやSSRと統合されている
+- Next.jsを採用する場合は有力な選択肢だが、今回のReact + Vite構成では採用しない
+
 ## 5. 最終的に選んだ方針とその理由
+
+### フロントエンド
+
+TypeScriptとReact、Viteを採用する。課題の要件でTypeScriptとReactが指定されており、GoでバックエンドAPIを分離して構築する今回の構成では、ReactによるSPAで要件を満たせるためである。不要なサーバー層を追加せず、フロントエンドとGo APIの責務を明確に分けることを優先する。
+
+Next.jsは、SSR、SEO、Next.js側のAPI、Server Componentsなどを現時点では必要としていないため採用しない。
+
+### ルーティング
+
+ルーティングにはReact Router v7を採用し、Vite上のSPAとして利用する。現時点では画面遷移とURLとコンポーネントの対応付けが主な要件のため、Declarative Modeを利用する。
+
+将来的にルート単位のデータ取得や送信処理、ローディング状態の管理が必要になった場合は、Data Modeへの移行を検討する。React RouterのFramework ModeやRemixのサーバー機能は、Goバックエンドを別に持つ今回の構成では現時点では利用しない。
 
 ## 6. 今後の拡張性や運用を見据えた懸念点
