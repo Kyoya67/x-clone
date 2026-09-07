@@ -65,6 +65,55 @@ npm run format
 npm run format:check
 ```
 
+## CI
+
+### 実行条件
+
+```yaml
+pull_request:
+  branches:
+    - develop
+  paths:
+    - 'frontend/**'
+    - '.github/workflows/frontend-ci.yml'
+```
+
+`develop`向けPull Requestの作成・更新時に、`frontend`ディレクトリまたは`frontend-ci.yml`を変更している場合、CIが実行されます。
+
+```yaml
+push:
+  branches:
+    - develop
+  paths:
+    - 'frontend/**'
+    - '.github/workflows/frontend-ci.yml'
+```
+
+push先のブランチが`develop`で、かつ`frontend`ディレクトリまたは`frontend-ci.yml`を変更した場合、CIが実行されます。
+
+### 実行内容
+
+```text
+npm ci
+  ↓
+npm run format:check
+  ↓
+npm run test
+  ↓
+npm run build
+```
+
+### ローカルでの確認
+
+CIと同じ内容をローカルで確認する場合は、`frontend`ディレクトリで次を実行してください。
+
+```bash
+npm ci
+npm run format:check
+npm run test
+npm run build
+```
+
 ## 現在の実装範囲
 
 - X風のタイムライン画面
