@@ -521,6 +521,7 @@ button {
     bottom: 0;
     flex-direction: row;
     height: 60px;
+    min-height: 60px;
     justify-content: space-around;
     padding: 4px 8px;
     position: fixed;
