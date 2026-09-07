@@ -22,11 +22,6 @@ export function Composer({
           rows={3}
         />
         <div className="composer-footer">
-          <div className="composer-tools" aria-label="添付メニュー">
-            <button type="button">▧</button>
-            <button type="button">◎</button>
-            <button type="button">☺</button>
-          </div>
           <span className="char-count">{draft.length}/140</span>
           <button className="publish-button" disabled={!draft.trim()} type="submit">
             ポストする
