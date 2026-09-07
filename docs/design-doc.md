@@ -2,40 +2,18 @@
 
 ## 1. 開発方針
 
-詳細な設計を最初に固定せず、最小限の全体像を定めたうえで、機能単位に実装と検証を繰り返す。
-
 開発の進捗は、GitHub Milestoneで管理する。対象となるIssueを同じMilestoneに紐づけ、Milestoneの進捗率で全体の達成状況を把握する。
 
 `````
 課題全体の完成
 ├── Milestone 1: ローカル開発基盤の構築
-│   ├── Issue: フロントエンドの初期構成を作成する
-│   ├── Issue: Goバックエンドの初期構成を作成する
-│   ├── Issue: データベース環境を構築する
-│   ├── Issue: ヘルスチェックAPIを実装する
-│   ├── Issue: フロントエンドからヘルスチェックAPIへ接続する
-│   └── Issue: 開発環境を新しい開発者が再現できるようにする
+│   └── 複数のIssue（フロントエンド、バックエンド、DB、APIなど）
 ├── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
-│   ├── Issue: AWSアカウント・IAMユーザーを準備する
-│   ├── Issue: Terraform Stateの保存先を準備する
-│   ├── Issue: Google OAuthアプリを作成する
-│   ├── Issue: GitHub Actionsのシークレットを登録する
-│   ├── Issue: Terraformでアプリ用AWSリソースを構築する
-│   ├── Issue: CIを構築する
-│   ├── Issue: CDを構築する
-│   └── Issue: 最小アプリをデプロイして疎通確認する
+│   └── 複数のIssue（AWS、Terraform、CI/CDなど）
 ├── Milestone 3: 必須機能の実装
-│   ├── Issue: ログイン機能を実装する（Cognito + Google）
-│   ├── Issue: 投稿機能を実装する
-│   ├── Issue: フォロー機能を実装する
-│   ├── Issue: タイムライン機能を実装する
-│   ├── Issue: エラーハンドリングとUIを改善する
-│   └── Issue: テスト作成
+│   └── 複数のIssue（ログイン、投稿、フォロー、タイムラインなど）
 └── Milestone 4: 本番環境の構築・運用準備（予定）
-    ├── Issue: 本番環境を構築する
-    ├── Issue: 本番環境のセキュリティを強化する
-    ├── Issue: 監視・ログ・バックアップを整備する
-    └── Issue: 本番環境へのデプロイと動作確認を行う
+    └── 複数のIssue（本番環境、セキュリティ、監視、バックアップなど）
 `````
 
 - Milestone：関連するIssueを段階ごとにまとめ、各段階の進捗を把握する
