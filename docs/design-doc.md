@@ -16,12 +16,16 @@
     └── 複数のIssue（本番環境、セキュリティ、監視、バックアップなど）
 `````
 
-- Milestone：関連するIssueを段階ごとにまとめ、各段階の進捗を把握する
-- Issue：個別の作業を管理し、目的・完了条件・検証結果・残課題を記録する
+Milestoneは関連するIssueを段階ごとにまとめ、Issueは個別の作業を管理する。
 
-開発は `develop` ブランチを統合ブランチとして進める。Issueごとに作業ブランチを作成し、実装完了後に `develop` へのPull Requestを作成する。Pull Requestでは関連するIssue、変更内容、検証結果を確認する。
+Issueごとに `develop` ブランチから作業ブランチを作成し、作業完了後に `develop` へのPull Requestを作成する。各Issueの変更を `develop` に統合し、Milestoneが完了した時点で `develop` から `main` へのPull Requestを作成する。
 
-提出前には `develop` の内容を `main` に反映し、評価者が `main` ブランチだけで動作確認できる状態にする。
+`````
+作業ブランチ → develop → main
+   IssueごとのPR     Milestone完了時のPR
+`````
+
+提出前には `develop` の内容を `main` に反映し、評価者が `main` ブランチで動作確認できる状態にする。
 
 ## 2. AIの活用方針
 
