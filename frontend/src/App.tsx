@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
 
 type Post = {
   id: number
@@ -67,7 +68,7 @@ function Icon({ name }: { name: IconName }) {
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
 
-function App() {
+function Timeline() {
   const [posts, setPosts] = useState(initialPosts)
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('おすすめ')
@@ -104,12 +105,12 @@ function App() {
       <aside className="sidebar">
         <div className="brand-mark">𝕏</div>
         <nav className="main-nav" aria-label="メインメニュー">
-          <a className="nav-item active" href="#timeline"><Icon name="home" /><span>ホーム</span></a>
-          <a className="nav-item" href="#explore"><Icon name="search" /><span>話題を検索</span></a>
-          <a className="nav-item" href="#notifications"><Icon name="bell" /><span>通知</span><span className="badge">3</span></a>
-          <a className="nav-item" href="#messages"><Icon name="chat" /><span>チャット</span></a>
-          <a className="nav-item" href="#profile"><Icon name="profile" /><span>プロフィール</span></a>
-          <a className="nav-item" href="#more"><Icon name="more" /><span>もっと見る</span></a>
+          <NavLink className="nav-item" to="/"><Icon name="home" /><span>ホーム</span></NavLink>
+          <NavLink className="nav-item" to="/explore"><Icon name="search" /><span>話題を検索</span></NavLink>
+          <NavLink className="nav-item" to="/notifications"><Icon name="bell" /><span>通知</span><span className="badge">3</span></NavLink>
+          <NavLink className="nav-item" to="/messages"><Icon name="chat" /><span>チャット</span></NavLink>
+          <NavLink className="nav-item" to="/profile"><Icon name="profile" /><span>プロフィール</span></NavLink>
+          <NavLink className="nav-item" to="/more"><Icon name="more" /><span>もっと見る</span></NavLink>
         </nav>
         <button className="post-button" type="button" onClick={() => document.getElementById('composer')?.focus()}>ポストする</button>
         <button className="account-card" type="button">
@@ -175,6 +176,33 @@ function App() {
         <footer className="footer-links">利用規約　プライバシーポリシー　© 2026 ENG-1103</footer>
       </aside>
     </div>
+  )
+}
+
+function Placeholder({ title }: { title: string }) {
+  return (
+    <div className="placeholder-page">
+      <div className="brand-mark">𝕏</div>
+      <h1>{title}</h1>
+      <p>この画面は今後実装予定です。</p>
+      <NavLink className="back-home" to="/">ホームに戻る</NavLink>
+    </div>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Timeline />} />
+        <Route path="/explore" element={<Placeholder title="話題を検索" />} />
+        <Route path="/notifications" element={<Placeholder title="通知" />} />
+        <Route path="/messages" element={<Placeholder title="チャット" />} />
+        <Route path="/profile" element={<Placeholder title="プロフィール" />} />
+        <Route path="/more" element={<Placeholder title="もっと見る" />} />
+        <Route path="*" element={<Placeholder title="ページが見つかりません" />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
