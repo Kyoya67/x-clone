@@ -46,6 +46,74 @@ button {
   text-decoration: none;
   font-weight: 700;
 }
+.page-content {
+  border-right: 1px solid #eff3f4;
+  min-height: 100vh;
+}
+.content-header {
+  border-bottom: 1px solid #eff3f4;
+  padding: 17px 16px;
+}
+.content-header h1 {
+  font-size: 20px;
+  margin: 0;
+}
+.content-body {
+  padding: 16px;
+}
+.content-body > p {
+  color: #536471;
+  margin: 0 0 18px;
+}
+.content-body .rail-card {
+  margin-top: 0;
+}
+.notification-item,
+.message-row {
+  align-items: center;
+  border-bottom: 1px solid #eff3f4;
+  display: flex;
+  gap: 12px;
+  padding: 16px 0;
+}
+.notification-item p {
+  line-height: 1.5;
+  margin: 0;
+}
+.message-time {
+  color: #536471;
+  font-size: 13px;
+  margin-left: auto;
+}
+.profile-card {
+  border: 1px solid #eff3f4;
+  border-radius: 16px;
+  padding: 20px;
+}
+.profile-avatar {
+  height: 64px;
+  width: 64px;
+}
+.profile-card h2 {
+  margin: 12px 0 2px;
+}
+.profile-card p {
+  color: #536471;
+  margin: 6px 0;
+}
+.more-menu {
+  background: #eff3f4;
+  display: grid;
+  gap: 1px;
+}
+.more-menu button {
+  background: #fff;
+  padding: 18px;
+  text-align: left;
+}
+.more-menu button:hover {
+  background: #f7f9f9;
+}
 .app-shell {
   display: grid;
   grid-template-columns: 275px minmax(500px, 600px) 350px;
