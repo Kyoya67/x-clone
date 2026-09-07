@@ -359,6 +359,15 @@ button {
 .post-meta strong {
   font-size: 15px;
 }
+.post-author,
+.user-link {
+  color: inherit;
+  text-decoration: none;
+}
+.post-author:hover strong,
+.user-link:hover strong {
+  text-decoration: underline;
+}
 .post-more {
   background: none;
   color: #536471;
@@ -466,6 +475,11 @@ button {
   font-weight: 700;
   margin-left: auto;
   padding: 8px 13px;
+}
+.follow-button.following {
+  background: #fff;
+  border: 1px solid #cfd9de;
+  color: #0f1419;
 }
 .footer-links {
   color: #536471;

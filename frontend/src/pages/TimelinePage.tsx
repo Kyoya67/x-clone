@@ -4,10 +4,13 @@ import { Feed } from '../components/Feed'
 import { PageLayout } from '../components/PageLayout'
 import { TimelineHeader } from '../components/TimelineHeader'
 import { initialPosts, Post } from '../data/posts'
+import { useFollowing } from '../state/FollowingContext'
 
 export function TimelinePage() {
   const [posts, setPosts] = useState<Post[]>(initialPosts)
   const [draft, setDraft] = useState('')
+  const [activeTab, setActiveTab] = useState('おすすめ')
+  const { followingHandles } = useFollowing()
   const publish = (event: FormEvent) => {
     event.preventDefault()
     const body = draft.trim()
@@ -36,12 +39,17 @@ export function TimelinePage() {
           : post,
       ),
     )
+  const visiblePosts =
+    activeTab === 'フォロー中'
+      ? posts.filter((post) => followingHandles.includes(post.handle))
+      : posts
+
   return (
     <PageLayout>
       <div className="timeline">
-        <TimelineHeader />
+        <TimelineHeader activeTab={activeTab} onTabChange={setActiveTab} />
         <Composer draft={draft} onDraftChange={setDraft} onPublish={publish} />
-        <Feed posts={posts} onToggleLike={toggleLike} />
+        <Feed posts={visiblePosts} onToggleLike={toggleLike} />
       </div>
     </PageLayout>
   )

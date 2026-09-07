@@ -1,6 +1,9 @@
 import { Icon } from './Icon'
+import { NavLink } from 'react-router-dom'
+import { useFollowing } from '../state/FollowingContext'
 
 export function RightRail() {
+  const { toggleFollowing, isFollowing } = useFollowing()
   return (
     <aside className="right-rail">
       <label className="search-box">
@@ -30,12 +33,19 @@ export function RightRail() {
             <span className={`avatar ${index ? 'avatar-pink' : 'avatar-green'}`}>
               {index ? '開' : '翔'}
             </span>
-            <span className="account-copy">
+            <NavLink
+              className="account-copy user-link"
+              to={`/users/${index ? 'product_team' : 'sho_sato'}`}
+            >
               <strong>{name}</strong>
               <small>@{index ? 'product_team' : 'sho_sato'}</small>
-            </span>
-            <button type="button" className="follow-button">
-              フォロー
+            </NavLink>
+            <button
+              type="button"
+              className={`follow-button ${isFollowing(index ? '@product_team' : '@sho_sato') ? 'following' : ''}`}
+              onClick={() => toggleFollowing(index ? '@product_team' : '@sho_sato')}
+            >
+              {isFollowing(index ? '@product_team' : '@sho_sato') ? 'フォロー中' : 'フォロー'}
             </button>
           </div>
         ))}

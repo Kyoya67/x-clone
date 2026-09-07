@@ -1,7 +1,6 @@
-import { useState } from 'react'
+type TimelineHeaderProps = { activeTab: string; onTabChange: (tab: string) => void }
 
-export function TimelineHeader() {
-  const [activeTab, setActiveTab] = useState('おすすめ')
+export function TimelineHeader({ activeTab, onTabChange }: TimelineHeaderProps) {
   return (
     <header className="timeline-header">
       <h1>ホーム</h1>
@@ -10,7 +9,7 @@ export function TimelineHeader() {
           <button
             key={tab}
             className={activeTab === tab ? 'tab active' : 'tab'}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => onTabChange(tab)}
             role="tab"
             aria-selected={activeTab === tab}
           >

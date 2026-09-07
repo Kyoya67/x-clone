@@ -49,3 +49,30 @@ export const initialPosts: Post[] = [
     reposts: 5,
   },
 ]
+
+export const followingPosts: Post[] = [
+  {
+    id: 4,
+    name: '佐藤 翔',
+    handle: '@sho_sato',
+    body: '今日は新しい機能のプロトタイプを作っています。小さく試して改善するのが楽しい。',
+    time: '30分',
+    avatar: '翔',
+    avatarClass: 'avatar-green',
+    likes: 12,
+    replies: 1,
+    reposts: 2,
+  },
+  {
+    id: 5,
+    name: '鈴木 花子',
+    handle: '@hanako_s',
+    body: 'チームで仕様を確認しました。使う人の目線で考えることを忘れないようにしたい。',
+    time: '1時間',
+    avatar: '花',
+    avatarClass: 'avatar-pink',
+    likes: 31,
+    replies: 4,
+    reposts: 6,
+  },
+]

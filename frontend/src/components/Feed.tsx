@@ -1,4 +1,5 @@
 import { Post } from '../data/posts'
+import { NavLink } from 'react-router-dom'
 
 export function Feed({
   posts,
@@ -14,7 +15,9 @@ export function Feed({
           <span className={`avatar avatar-blue ${post.avatarClass ?? ''}`}>{post.avatar}</span>
           <div className="post-content">
             <div className="post-meta">
-              <strong>{post.name}</strong>
+              <NavLink className="post-author" to={`/users/${post.handle.slice(1)}`}>
+                <strong>{post.name}</strong>
+              </NavLink>
               <span>{post.handle}</span>
               <span>·</span>
               <span>{post.time}</span>
