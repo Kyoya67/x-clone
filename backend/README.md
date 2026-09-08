@@ -86,16 +86,13 @@ PORT=8081 go run ./cmd/api
 
 ## OpenAPIの確認
 
-OpenAPI仕様は、Swagger UIをDockerコンテナで起動して確認できます。`backend`ディレクトリで実行してください。
+Goバックエンドが配信するSwagger UIで、OpenAPI仕様を確認できます。
 
 ```bash
-docker run --rm -p 8081:8080 \
-  -e SWAGGER_JSON=/openapi.yaml \
-  -v "$(pwd)/openapi/openapi.yaml:/openapi.yaml" \
-  swaggerapi/swagger-ui
+go run ./cmd/api
 ```
 
-その後、手元のブラウザで`http://localhost:8081`を開きます。
+起動後、ブラウザで`http://localhost:8080/docs`を開きます。Swagger UIは同じGoサーバーから`/openapi.yaml`を読み込むため、Swagger UI専用のポートやCORS設定は必要ありません。
 
 ## テスト
 
