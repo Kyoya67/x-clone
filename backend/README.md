@@ -37,11 +37,23 @@ docker compose up -d
 
 ## 環境変数
 
-`DATABASE_URL`でデータベース接続先を変更できます。未指定の場合は、ローカル開発用のデフォルト接続先を使用します。
+`.env.example`をコピーして、データベース接続に必要な環境変数を設定します。
 
 ```bash
-DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable
+cp .env.example .env
+set -a
+source .env
+set +a
 ```
+
+`DATABASE_URL`でデータベース接続先を、`DATABASE_SSL_MODE`で接続時のSSL方式を変更できます。未指定の場合は、ローカル開発用のデフォルト接続先と`disable`を使用します。
+
+```bash
+DATABASE_URL=postgres://app:app@localhost:5432/app
+DATABASE_SSL_MODE=disable
+```
+
+本番環境では、環境に応じて`DATABASE_SSL_MODE=require`または`verify-full`を設定します。`.env`は機密情報を含む可能性があるため、Gitへコミットしません。
 
 ## 開発サーバーの起動
 
@@ -131,6 +143,7 @@ backend/
 ├── cmd/api/             # APIサーバーの起動
 │   └── main.go
 ├── docker-compose.yml    # ローカルPostgreSQL
+├── .env.example           # 環境変数のサンプル
 ├── internal/
 │   ├── controllers/      # HTTPリクエスト・レスポンスの処理
 │   │   └── health.go
