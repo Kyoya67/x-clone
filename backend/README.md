@@ -6,6 +6,8 @@ Goで実装するバックエンドAPIです。
 
 - Go
 - gorilla/mux
+- PostgreSQL
+- pgx
 
 ## 必要な環境
 
@@ -27,6 +29,47 @@ go mod download
 
 `go.mod`と`go.sum`に記録された依存関係をダウンロードします。
 
+PostgreSQLを起動します。
+
+```bash
+docker compose up -d
+```
+
+停止する場合：
+
+```bash
+docker compose down
+```
+
+`.env.example`をコピーして、環境変数を設定します。
+
+```bash
+cp .env.example .env
+set -a
+source .env
+set +a
+```
+
+## 環境変数
+
+`.env.example`をコピーして、データベース接続に必要な環境変数を設定します。
+
+```bash
+cp .env.example .env
+set -a
+source .env
+set +a
+```
+
+`DATABASE_URL`でデータベース接続先を、`DATABASE_SSL_MODE`で接続時のSSL方式を変更できます。未指定の場合は、ローカル開発用のデフォルト接続先と`disable`を使用します。
+
+```bash
+DATABASE_URL=postgres://app:app@localhost:5432/app
+DATABASE_SSL_MODE=disable
+```
+
+本番環境では、環境に応じて`DATABASE_SSL_MODE=require`または`verify-full`を設定します。`.env`は機密情報を含む可能性があるため、Gitへコミットしません。
+
 ## 開発サーバーの起動
 
 ```bash
@@ -43,11 +86,15 @@ PORT=8081 go run ./cmd/api
 
 ## テスト
 
+バックエンドのユニットテストを実行します。現在はルーターからヘルスチェックエンドポイントを呼び出し、期待したHTTPステータスとレスポンスが返ることを確認しています。
+
 ```bash
 go test ./...
 ```
 
 ## コード整形
+
+Goの標準フォーマッターを使用します。VS Codeでは、ルートの[`.vscode/settings.json`](../.vscode/settings.json)で保存時フォーマットを有効にしており、Go拡張機能が保存時に自動実行します。
 
 ```bash
 gofmt -w .
@@ -62,8 +109,8 @@ pull_request:
   branches:
     - develop
   paths:
-    - 'backend/**'
-    - '.github/workflows/backend-ci.yml'
+    - "backend/**"
+    - ".github/workflows/backend-ci.yml"
 ```
 
 `develop`向けPull Requestの作成・更新時に、`backend`ディレクトリまたは`backend-ci.yml`を変更している場合、CIが実行されます。
@@ -73,8 +120,8 @@ push:
   branches:
     - develop
   paths:
-    - 'backend/**'
-    - '.github/workflows/backend-ci.yml'
+    - "backend/**"
+    - ".github/workflows/backend-ci.yml"
 ```
 
 push先のブランチが`develop`で、かつ`backend`ディレクトリまたは`backend-ci.yml`を変更した場合、CIが実行されます。
@@ -91,7 +138,7 @@ go vet ./...
 
 ### ローカルでの確認
 
-CIと同じ内容をローカルで確認する場合は、`backend`ディレクトリで次を実行してください。
+CIと同じ内容をローカルで確認する場合は、`backend`ディレクトリで次を実行してください。最初のコマンドはフォーマット違反の検出、2つ目はテスト、3つ目は静的解析です。
 
 ```bash
 test -z "$(gofmt -l .)"
@@ -103,6 +150,7 @@ go vet ./...
 
 - HTTPサーバーの起動
 - `PORT`環境変数によるポート設定
+- PostgreSQLへの接続確認
 - `GET /health`によるヘルスチェック
 
 投稿、フォロー、タイムラインなどのAPIは、OpenAPIで仕様を定義したうえで今後実装します。
@@ -113,6 +161,8 @@ go vet ./...
 backend/
 ├── cmd/api/             # APIサーバーの起動
 │   └── main.go
+├── docker-compose.yml    # ローカルPostgreSQL
+├── .env.example           # 環境変数のサンプル
 ├── internal/
 │   ├── controllers/      # HTTPリクエスト・レスポンスの処理
 │   │   └── health.go
