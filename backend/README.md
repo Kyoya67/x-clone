@@ -41,6 +41,30 @@ docker compose up -d
 docker compose down
 ```
 
+### データベースマイグレーション
+
+データベースのスキーマ変更は`golang-migrate`で管理します。PostgreSQLを起動したあと、`backend`ディレクトリで以下を実行してください。
+
+```bash
+docker compose run --rm migrate \
+  -path=/migrations \
+  -database 'postgres://app:app@postgres:5432/app?sslmode=disable' \
+  up
+```
+
+適用済みのマイグレーションは、PostgreSQLの`schema_migrations`テーブルで管理されます。未適用のマイグレーションだけが順番に適用されるため、同じコマンドを再実行しても適用済みのSQLは再実行されません。
+
+最後に適用したマイグレーションを1つ戻す場合：
+
+```bash
+docker compose run --rm migrate \
+  -path=/migrations \
+  -database 'postgres://app:app@postgres:5432/app?sslmode=disable' \
+  down 1
+```
+
+`down`はテーブル削除などの変更を行うため、開発データが失われる可能性があります。
+
 `.env.example`をコピーして、環境変数を設定します。
 
 ```bash
