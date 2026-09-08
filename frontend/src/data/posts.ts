@@ -1,5 +1,5 @@
 export type Post = {
-  id: number
+  id: string
   name: string
   handle: string
   body: string
@@ -14,7 +14,7 @@ export type Post = {
 
 export const initialPosts: Post[] = [
   {
-    id: 1,
+    id: 'mock-1',
     name: '田中 太郎',
     handle: '@taro_tanaka',
     body: '今日はチームでタイムライン機能の設計をしました。小さく作って検証するのが気持ちいい。',
@@ -25,7 +25,7 @@ export const initialPosts: Post[] = [
     reposts: 4,
   },
   {
-    id: 2,
+    id: 'mock-2',
     name: '鈴木 花子',
     handle: '@hanako_s',
     body: '新しいサービスの最初の一歩。ユーザーが迷わず使える体験を大切にしたい。',
@@ -37,7 +37,7 @@ export const initialPosts: Post[] = [
     reposts: 9,
   },
   {
-    id: 3,
+    id: 'mock-3',
     name: '山本 健',
     handle: '@ken_yamamoto',
     body: 'コードレビューで設計の意図を共有する時間が好きです。',
@@ -52,7 +52,7 @@ export const initialPosts: Post[] = [
 
 export const followingPosts: Post[] = [
   {
-    id: 4,
+    id: 'mock-4',
     name: '佐藤 翔',
     handle: '@sho_sato',
     body: '今日は新しい機能のプロトタイプを作っています。小さく試して改善するのが楽しい。',
@@ -64,7 +64,7 @@ export const followingPosts: Post[] = [
     reposts: 2,
   },
   {
-    id: 5,
+    id: 'mock-5',
     name: '鈴木 花子',
     handle: '@hanako_s',
     body: 'チームで仕様を確認しました。使う人の目線で考えることを忘れないようにしたい。',
