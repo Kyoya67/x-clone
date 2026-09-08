@@ -153,7 +153,7 @@ go vet ./...
 - PostgreSQLへの接続確認
 - `GET /health`によるヘルスチェック
 
-投稿、フォロー、タイムラインなどのAPIは、OpenAPIで仕様を定義したうえで今後実装します。
+投稿、フォロー、タイムラインのAPI仕様は[`openapi/openapi.yaml`](openapi/openapi.yaml)で定義しています。各APIの実装は今後の機能Issueで行います。
 
 ## ディレクトリ構成
 
@@ -163,6 +163,8 @@ backend/
 │   └── main.go
 ├── docker-compose.yml    # ローカルPostgreSQL
 ├── .env.example           # 環境変数のサンプル
+├── openapi/              # API仕様
+│   └── openapi.yaml
 ├── internal/
 │   ├── controllers/      # HTTPリクエスト・レスポンスの処理
 │   │   └── health.go
