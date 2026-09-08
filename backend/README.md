@@ -84,6 +84,19 @@ go run ./cmd/api
 PORT=8081 go run ./cmd/api
 ```
 
+## OpenAPIの確認
+
+OpenAPI仕様は、Swagger UIをDockerコンテナで起動して確認できます。`backend`ディレクトリで実行してください。
+
+```bash
+docker run --rm -p 8081:8080 \
+  -e SWAGGER_JSON=/openapi.yaml \
+  -v "$(pwd)/openapi/openapi.yaml:/openapi.yaml" \
+  swaggerapi/swagger-ui
+```
+
+その後、手元のブラウザで`http://localhost:8081`を開きます。
+
 ## テスト
 
 バックエンドのユニットテストを実行します。現在はルーターからヘルスチェックエンドポイントを呼び出し、期待したHTTPステータスとレスポンスが返ることを確認しています。
