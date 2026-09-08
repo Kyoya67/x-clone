@@ -6,6 +6,8 @@ Goで実装するバックエンドAPIです。
 
 - Go
 - gorilla/mux
+- PostgreSQL
+- pgx
 
 ## 必要な環境
 
@@ -26,6 +28,20 @@ go mod download
 ```
 
 `go.mod`と`go.sum`に記録された依存関係をダウンロードします。
+
+PostgreSQLを起動します。
+
+```bash
+docker compose up -d
+```
+
+## 環境変数
+
+`DATABASE_URL`でデータベース接続先を変更できます。未指定の場合は、ローカル開発用のデフォルト接続先を使用します。
+
+```bash
+DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable
+```
 
 ## 開発サーバーの起動
 
@@ -103,6 +119,7 @@ go vet ./...
 
 - HTTPサーバーの起動
 - `PORT`環境変数によるポート設定
+- PostgreSQLへの接続確認
 - `GET /health`によるヘルスチェック
 
 投稿、フォロー、タイムラインなどのAPIは、OpenAPIで仕様を定義したうえで今後実装します。
@@ -113,6 +130,7 @@ go vet ./...
 backend/
 ├── cmd/api/             # APIサーバーの起動
 │   └── main.go
+├── docker-compose.yml    # ローカルPostgreSQL
 ├── internal/
 │   ├── controllers/      # HTTPリクエスト・レスポンスの処理
 │   │   └── health.go
