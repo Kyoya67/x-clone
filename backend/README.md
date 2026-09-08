@@ -86,11 +86,15 @@ PORT=8081 go run ./cmd/api
 
 ## テスト
 
+バックエンドのユニットテストを実行します。現在はルーターからヘルスチェックエンドポイントを呼び出し、期待したHTTPステータスとレスポンスが返ることを確認しています。
+
 ```bash
 go test ./...
 ```
 
 ## コード整形
+
+Goの標準フォーマッターを使用します。VS Codeでは、ルートの[`.vscode/settings.json`](../.vscode/settings.json)で保存時フォーマットを有効にしており、Go拡張機能が保存時に自動実行します。
 
 ```bash
 gofmt -w .
@@ -105,8 +109,8 @@ pull_request:
   branches:
     - develop
   paths:
-    - 'backend/**'
-    - '.github/workflows/backend-ci.yml'
+    - "backend/**"
+    - ".github/workflows/backend-ci.yml"
 ```
 
 `develop`向けPull Requestの作成・更新時に、`backend`ディレクトリまたは`backend-ci.yml`を変更している場合、CIが実行されます。
@@ -116,8 +120,8 @@ push:
   branches:
     - develop
   paths:
-    - 'backend/**'
-    - '.github/workflows/backend-ci.yml'
+    - "backend/**"
+    - ".github/workflows/backend-ci.yml"
 ```
 
 push先のブランチが`develop`で、かつ`backend`ディレクトリまたは`backend-ci.yml`を変更した場合、CIが実行されます。
@@ -134,7 +138,7 @@ go vet ./...
 
 ### ローカルでの確認
 
-CIと同じ内容をローカルで確認する場合は、`backend`ディレクトリで次を実行してください。
+CIと同じ内容をローカルで確認する場合は、`backend`ディレクトリで次を実行してください。最初のコマンドはフォーマット違反の検出、2つ目はテスト、3つ目は静的解析です。
 
 ```bash
 test -z "$(gofmt -l .)"
