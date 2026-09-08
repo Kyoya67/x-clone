@@ -14,6 +14,8 @@ func NewRouter(db *sql.DB) http.Handler {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", healthController.Health).Methods(http.MethodGet)
+	r.HandleFunc("/docs", controllers.SwaggerUI).Methods(http.MethodGet)
+	r.HandleFunc("/openapi.yaml", controllers.OpenAPISpec).Methods(http.MethodGet)
 
 	return r
 }
