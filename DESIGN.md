@@ -120,4 +120,28 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 | ⭕️   | Vitest | Viteと設定やモジュール変換の考え方を共有しやすい | 今回のVite構成に合わせやすいため採用                                     |
 | —    | Jest   | Reactを含むエコシステムで実績と情報量が多い      | Viteとは別に変換設定などを整える必要があり、今回はVitestより設定が増える |
 
+### バックエンドの構成
+
+Goバックエンドは、HTTPサーバーの起動、ルーティング、HTTPリクエスト処理、業務ロジック、データアクセスの責務を分ける。現時点ではhealth endpointのみ実装しているため、実際に使用しているのは`cmd/api`、`internal/controllers`、`internal/routers`である。Post機能の実装時に`services`、`repositories`、`models`を追加する。
+
+```text
+cmd/api/main.go
+    │ DB初期化・サーバー起動
+    ▼
+internal/routers/router.go
+    │ service・controllerの生成、ルート登録
+    ▼
+internal/controllers/
+    │ HTTPリクエスト・レスポンス処理
+    ▼
+internal/services/
+    │ 業務ロジック
+    ▼
+internal/repositories/ ── DBアクセス
+    │
+internal/models/ ─────── データモデル
+```
+
+`main.go`ではDBを初期化して`routers.NewRouter(db)`へ渡す形を維持する。controllerを個別に`NewRouter`の引数へ追加せず、必要なcontrollerやserviceの生成は`router.go`に集約することで、アプリケーションの組み立てとルート定義を追いやすくする。health endpointのようにDBやserviceを必要としない処理は、controller単体で実装する。
+
 ## 5. 今後の拡張性や運用を見据えた懸念点
