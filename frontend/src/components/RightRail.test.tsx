@@ -6,7 +6,7 @@ import { RightRail } from './RightRail'
 import { FollowingProvider } from '../state/FollowingContext'
 
 describe('RightRail', () => {
-  it('フォローとフォロー解除を切り替えられる', async () => {
+  it('toggles follow and unfollow', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>

@@ -16,8 +16,8 @@ function renderAtWidth(width: number) {
   )
 }
 
-describe('レスポンシブレイアウト', () => {
-  it('デスクトップ幅で3つのレイアウト領域を表示する', () => {
+describe('Responsive layout', () => {
+  it('renders three layout areas on desktop', () => {
     const { container } = renderAtWidth(1280)
     expect(container.querySelector('.sidebar')).toBeInTheDocument()
     expect(container.querySelector('.timeline')).toBeInTheDocument()
@@ -25,7 +25,7 @@ describe('レスポンシブレイアウト', () => {
     expect(screen.getByPlaceholderText('いまどうしてる？')).toBeInTheDocument()
   })
 
-  it('モバイル幅でもタイムラインと操作領域を表示する', () => {
+  it('renders the timeline and navigation areas on mobile', () => {
     const { container } = renderAtWidth(375)
     expect(container.querySelector('.sidebar')).toBeInTheDocument()
     expect(container.querySelector('.timeline')).toBeInTheDocument()
