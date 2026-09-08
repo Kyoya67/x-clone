@@ -35,6 +35,21 @@ PostgreSQLを起動します。
 docker compose up -d
 ```
 
+停止する場合：
+
+```bash
+docker compose down
+```
+
+`.env.example`をコピーして、環境変数を設定します。
+
+```bash
+cp .env.example .env
+set -a
+source .env
+set +a
+```
+
 ## 環境変数
 
 `.env.example`をコピーして、データベース接続に必要な環境変数を設定します。
