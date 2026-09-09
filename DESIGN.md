@@ -101,10 +101,10 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 #### JavaScript・TypeScript変換
 
-| 採用           | 選択肢            | 役割                             | 判断理由                                         |
-| -------------- | ----------------- | -------------------------------- | ------------------------------------------------ |
-| Viteの標準構成 | SWC / esbuildなど | TypeScriptや最新JavaScriptの変換 | Viteの設定に任せ、個別の変換基盤を追加しない     |
-| —              | Babel             | JavaScript・TypeScript変換       | 柔軟で実績はあるが、今回の構成では追加設定が不要 |
+| 採用 | 選択肢            | 役割                             | 判断理由                                         |
+| ---- | ----------------- | -------------------------------- | ------------------------------------------------ |
+| ⭕️   | SWC / esbuildなど | TypeScriptや最新JavaScriptの変換 | Viteの設定に任せ、個別の変換基盤を追加しない     |
+| —    | Babel             | JavaScript・TypeScript変換       | 柔軟で実績はあるが、今回の構成では追加設定が不要 |
 
 #### SPAのルーティング
 
@@ -120,9 +120,33 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 | ⭕️   | Vitest | Viteと設定やモジュール変換の考え方を共有しやすい | 今回のVite構成に合わせやすいため採用                                     |
 | —    | Jest   | Reactを含むエコシステムで実績と情報量が多い      | Viteとは別に変換設定などを整える必要があり、今回はVitestより設定が増える |
 
+### バックエンド
+
+| 採用 | 選択肢                   | 役割             | 判断理由                                                                                                            |
+| ---- | ------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | Go                       | APIサーバー      | 課題の指定技術。コンパイル時の型検査と標準ライブラリのHTTP・context機能を活用し、単一バイナリとしてデプロイできる。 |
+| ⭕️   | `net/http` + gorilla/mux | HTTPルーティング | HTTPの標準的なインターフェースを維持しつつ、HTTPメソッド・パスパラメータごとのルート定義を簡潔に記述できる。        |
+| —    | Go標準ライブラリのみ     | HTTPルーティング | 依存を減らせる一方、現時点で必要なパスパラメータの取得やルート定義が冗長になりやすい。                              |
+| —    | chi                      | HTTPルーティング | 軽量でGoらしい選択肢だが、gorilla/muxで必要な機能を満たしており、移行する理由がない。                               |
+
+### データベース
+
+| 観点           | PostgreSQL                                         | MySQL                                                |
+| -------------- | -------------------------------------------------- | ---------------------------------------------------- |
+| データ整合性   | 外部キー、制約、トランザクションを厳密に扱いやすい | 外部キー、制約、トランザクションに対応               |
+| クエリ・拡張性 | 複雑なJOIN、集約、ウィンドウ関数、JSONBなどが強い  | 一般的なCRUDやJOINに強く、シンプルな構成で扱いやすい |
+| 型・機能       | 配列、JSONB、全文検索など組み込み機能が豊富        | JSON、全文検索などを提供し、用途によっては十分       |
+| 運用           | AWS RDSなどのマネージドサービスで運用できる        | AWS RDSなどのマネージドサービスで運用できる          |
+| ローカル開発   | Docker Composeで再現しやすい                       | Docker Composeで再現しやすい                         |
+| Goとの接続     | `pgx`などのドライバを利用できる                    | `go-sql-driver/mysql`などを利用できる                |
+
+MySQLは、一般的なCRUD中心のサービスや既存の運用知見を活用する場合に十分な選択肢である。一方、今回は投稿・ユーザー・フォローの関連データをRDBで管理し、タイムライン取得や将来の検索・分析機能で複雑なクエリを扱う可能性があるため、PostgreSQLの機能と拡張性を優先した。
+
+## 5. システム構成とデータモデル
+
 ### バックエンドの構成
 
-Goバックエンドは、HTTPサーバーの起動、ルーティング、HTTPリクエスト処理、業務ロジック、データアクセスの責務を分ける。現時点ではhealth endpointのみ実装しているため、実際に使用しているのは`cmd/api`、`internal/controllers`、`internal/routers`である。Post機能の実装時に`services`、`repositories`、`models`を追加する。
+Goバックエンドは、HTTPサーバーの起動、ルーティング、HTTPリクエスト処理、業務ロジック、データアクセスの責務を分ける。`cmd/api`、`internal/controllers`、`internal/services`、`internal/repositories`、`internal/models`を使用し、投稿・フォロー・タイムラインを実装する。
 
 ```text
 cmd/api/main.go
@@ -144,19 +168,40 @@ internal/models/ ─────── データモデル
 
 `main.go`ではDBを初期化して`routers.NewRouter(db)`へ渡す形を維持する。controllerを個別に`NewRouter`の引数へ追加せず、必要なcontrollerやserviceの生成は`router.go`に集約することで、アプリケーションの組み立てとルート定義を追いやすくする。health endpointのようにDBやserviceを必要としない処理は、controller単体で実装する。
 
-#### PostgreSQLとMySQLの比較
+### データベースの構成
 
-PostgreSQLとMySQLはいずれもプロダクションで広く利用されているRDBであり、今回の要件をどちらでも実装できる。PostgreSQLが常に優れているという理由ではなく、今回のSNSクローンで必要になるデータ整合性、複雑な検索、将来の拡張性を判断基準にPostgreSQLを選択した。
+ユーザー、投稿、フォロー関係はそれぞれ1つのテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
 
-| 観点 | PostgreSQL | MySQL | 今回の判断 |
-| --- | --- | --- | --- |
-| データ整合性 | 外部キー、制約、トランザクションを厳密に扱いやすい | 外部キー、制約、トランザクションに対応 | ユーザー・投稿・フォロー関係を安全に管理するため、どちらも候補 |
-| クエリ・拡張性 | 複雑なJOIN、集約、ウィンドウ関数、JSONBなどが強い | 一般的なCRUDやJOINに強く、シンプルな構成で扱いやすい | タイムラインや分析機能の拡張を考慮し、PostgreSQLを選択 |
-| 型・機能 | 配列、JSONB、全文検索など組み込み機能が豊富 | JSON、全文検索などを提供し、用途によっては十分 | 将来の検索・通知・分析機能の拡張余地を重視 |
-| 運用 | AWS RDSなどのマネージドサービスで運用できる | AWS RDSなどのマネージドサービスで運用できる | クラウド運用上の差は決定要因にしない |
-| ローカル開発 | Docker Composeで再現しやすい | Docker Composeで再現しやすい | どちらも同等 |
-| Goとの接続 | `pgx`などのドライバを利用できる | `go-sql-driver/mysql`などを利用できる | Goの`database/sql`から扱える点は同等 |
+```mermaid
+erDiagram
+    users ||--o{ posts : "author_id"
+    users ||--o{ follows : "follower_id"
+    users ||--o{ follows : "followee_id"
 
-MySQLは、一般的なCRUD中心のサービスや既存の運用知見を活用する場合に十分な選択肢である。一方、今回は投稿・ユーザー・フォローの関連データをRDBで管理し、タイムライン取得や将来の検索・分析機能で複雑なクエリを扱う可能性があるため、PostgreSQLの機能と拡張性を優先した。
+    users {
+        UUID id PK
+        VARCHAR handle UK
+        VARCHAR display_name
+        TEXT bio
+        TIMESTAMPTZ created_at
+    }
 
-## 5. 今後の拡張性や運用を見据えた懸念点
+    posts {
+        UUID id PK
+        UUID author_id FK
+        VARCHAR content
+        TIMESTAMPTZ created_at
+    }
+
+    follows {
+        UUID follower_id PK, FK
+        UUID followee_id PK, FK
+        TIMESTAMPTZ created_at
+    }
+```
+
+`follows`は、同じ`users`テーブルを2つの役割で参照する。たとえば田中が佐藤をフォローすると、`follower_id`は田中のID、`followee_id`は佐藤のIDとなる。`(follower_id, followee_id)`を複合主キーにすることで、同じユーザーを重複してフォローできない。また、`follower_id <> followee_id`の制約により、自分自身のフォローを防ぐ。
+
+タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
+
+## 6. 今後の拡張性や運用を見据えた懸念点

@@ -1,7 +1,51 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+
+function requestURL(input: RequestInfo | URL) {
+  return input instanceof Request ? input.url : input.toString()
+}
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL) => {
+      const url = requestURL(input)
+      if (url === '/api/timeline?feed=for-you') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              posts: [
+                {
+                  id: 'post-1',
+                  content: 'テスト投稿です。',
+                  createdAt: '2026-09-09T00:00:00Z',
+                  author: {
+                    id: '00000000-0000-0000-0000-000000000003',
+                    handle: 'ken_yamamoto',
+                    displayName: '山本 健',
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ userIds: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }),
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('App routes', () => {
   it.each([
@@ -21,7 +65,7 @@ describe('App routes', () => {
     const user = userEvent.setup()
     window.history.pushState({}, '', '/')
     render(<App />)
-    await user.click(screen.getByRole('link', { name: '山本 健' }))
+    await user.click(await screen.findByRole('link', { name: '山本 健' }))
     expect(screen.getByRole('heading', { name: 'プロフィール' })).toBeInTheDocument()
     expect(screen.getByText('@ken_yamamoto')).toBeInTheDocument()
     expect(screen.getByText('山本 健')).toBeInTheDocument()
