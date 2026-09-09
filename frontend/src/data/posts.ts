@@ -48,9 +48,6 @@ export const initialPosts: Post[] = [
     replies: 2,
     reposts: 5,
   },
-]
-
-export const followingPosts: Post[] = [
   {
     id: 'mock-4',
     name: '佐藤 翔',
@@ -74,5 +71,17 @@ export const followingPosts: Post[] = [
     likes: 31,
     replies: 4,
     reposts: 6,
+  },
+  {
+    id: 'mock-6',
+    name: 'プロダクト開発部',
+    handle: '@product_team',
+    body: '今週は開発環境の改善に取り組んでいます。小さな改善を積み重ねていきます。',
+    time: '3時間',
+    avatar: '開',
+    avatarClass: 'avatar-pink',
+    likes: 24,
+    replies: 3,
+    reposts: 7,
   },
 ]

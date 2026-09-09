@@ -57,28 +57,39 @@ paths:
       tags: [Follows]
       operationId: followUser
       summary: Follow a user
-      security:
-        - bearerAuth: []
       responses:
         '204':
           description: User followed
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     delete:
       tags: [Follows]
       operationId: unfollowUser
       summary: Unfollow a user
-      security:
-        - bearerAuth: []
       responses:
         '204':
           description: User unfollowed
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /me/following:
+    get:
+      tags: [Follows]
+      operationId: getMyFollowing
+      summary: Get users followed by the current user
+      responses:
+        '200':
+          description: Followed user identifiers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowingResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /timeline:
     get:
@@ -143,6 +154,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: A dependent service is temporarily unavailable
       content:
         application/json:
           schema:
@@ -225,6 +242,16 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    FollowingResponse:
+      type: object
+      required: [userIds]
+      properties:
+        userIds:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     TimelineResponse:
       type: object

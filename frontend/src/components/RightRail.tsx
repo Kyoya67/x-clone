@@ -1,9 +1,12 @@
 import { Icon } from './Icon'
 import { NavLink } from 'react-router-dom'
 import { useFollowing } from '../state/FollowingContext'
+import { findUserByHandle } from '../data/users'
 
 export function RightRail() {
-  const { toggleFollowing, isFollowing } = useFollowing()
+  const { toggleFollowing, isFollowing, isUpdating, error } = useFollowing()
+  const recommendedHandles = ['@sho_sato', '@product_team']
+
   return (
     <aside className="right-rail">
       <label className="search-box">
@@ -28,27 +31,28 @@ export function RightRail() {
       </section>
       <section className="rail-card follow-card">
         <h2>おすすめユーザー</h2>
-        {['佐藤 翔', 'プロダクト開発部'].map((name, index) => (
-          <div className="follow-row" key={name}>
-            <span className={`avatar ${index ? 'avatar-pink' : 'avatar-green'}`}>
-              {index ? '開' : '翔'}
-            </span>
-            <NavLink
-              className="account-copy user-link"
-              to={`/users/${index ? 'product_team' : 'sho_sato'}`}
-            >
-              <strong>{name}</strong>
-              <small>@{index ? 'product_team' : 'sho_sato'}</small>
-            </NavLink>
-            <button
-              type="button"
-              className={`follow-button ${isFollowing(index ? '@product_team' : '@sho_sato') ? 'following' : ''}`}
-              onClick={() => toggleFollowing(index ? '@product_team' : '@sho_sato')}
-            >
-              {isFollowing(index ? '@product_team' : '@sho_sato') ? 'フォロー中' : 'フォロー'}
-            </button>
-          </div>
-        ))}
+        {recommendedHandles.map((handle) => {
+          const user = findUserByHandle(handle)
+          if (!user) return null
+          return (
+            <div className="follow-row" key={user.id}>
+              <span className={`avatar ${user.avatarClass ?? ''}`}>{user.avatar}</span>
+              <NavLink className="account-copy user-link" to={`/users/${user.handle.slice(1)}`}>
+                <strong>{user.displayName}</strong>
+                <small>{user.handle}</small>
+              </NavLink>
+              <button
+                type="button"
+                className={`follow-button ${isFollowing(user.handle) ? 'following' : ''}`}
+                disabled={isUpdating(user.handle)}
+                onClick={() => void toggleFollowing(user.handle)}
+              >
+                {isFollowing(user.handle) ? 'フォロー中' : 'フォロー'}
+              </button>
+            </div>
+          )
+        })}
+        {error && <p role="alert">{error}</p>}
       </section>
       <footer className="footer-links">利用規約　プライバシーポリシー　© 2026 ENG-1103</footer>
     </aside>
