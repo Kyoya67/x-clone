@@ -14,17 +14,17 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 
 constructorはテスト対象に含めない。constructorは依存関係を構造体へ設定するだけで、独立した振る舞いを持たないためである。
 
-| 対象 | 関数 | カバレッジ |
-|---|---|---:|
-| PostController | `Create` | 100.0% |
+| 対象           | 関数     | カバレッジ |
+| -------------- | -------- | ---------: |
+| PostController | `Create` |     100.0% |
 
 計測コマンド：
 
-`````bash
+```bash
 cd backend
 go test ./internal/controllers -run '^TestPostController' -coverprofile=/tmp/post-controller-cover.out
 go tool cover -func=/tmp/post-controller-cover.out | grep 'post.go'
-`````
+```
 
 ## Serviceテスト
 
@@ -38,17 +38,17 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 
 ### カバレッジ結果
 
-| 対象 | 関数 | カバレッジ |
-|---|---|---:|
-| PostService | `Create` | 100.0% |
+| 対象        | 関数     | カバレッジ |
+| ----------- | -------- | ---------: |
+| PostService | `Create` |     100.0% |
 
 計測コマンド：
 
-`````bash
+```bash
 cd backend
 go test ./internal/services -run '^TestPostService' -coverprofile=/tmp/post-service-cover.out
 go tool cover -func=/tmp/post-service-cover.out | grep 'post.go'
-`````
+```
 
 ## Repositoryテスト
 
@@ -64,25 +64,25 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 
 constructorはテスト対象に含めない。
 
-| 対象 | 関数 | カバレッジ |
-|---|---|---:|
-| PostRepository | `Create` | 80.0% |
-| PostgreSQL error classification | `classifyPostgresError` | 100.0% |
+| 対象                            | 関数                    | カバレッジ |
+| ------------------------------- | ----------------------- | ---------: |
+| PostRepository                  | `Create`                |     100.0% |
+| PostgreSQL error classification | `classifyPostgresError` |     100.0% |
 
 計測コマンド：
 
-`````bash
+```bash
 cd backend
 go test ./internal/repositories -run '^TestPostRepository|^TestClassifyPostgresError' -coverprofile=/tmp/post-repository-cover.out
 go tool cover -func=/tmp/post-repository-cover.out | grep 'post'
-`````
+```
 
 ## テストの実行
 
 バックエンド全体のテストは、`backend`ディレクトリで次を実行する。
 
-`````bash
+```bash
 go test ./...
-`````
+```
 
 Controller以外の層についても、依存先を差し替えて各層の責務を個別に検証する。

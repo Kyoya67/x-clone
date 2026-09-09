@@ -104,6 +104,8 @@ go run ./cmd/api
 
 デフォルトでは`http://localhost:8080`で起動します。ポートを変更する場合は`PORT`環境変数を指定します。
 
+サーバー起動時には、Swagger UIのURLもログへ表示されます。デフォルト設定では`http://localhost:8080/docs`です。
+
 ```bash
 PORT=8081 go run ./cmd/api
 ```
