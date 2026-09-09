@@ -76,10 +76,7 @@ function createFetchMock() {
     if (url === '/api/me/following') {
       return Promise.resolve(
         jsonResponse({
-          userIds: [
-            '00000000-0000-0000-0000-000000000002',
-            '00000000-0000-0000-0000-000000000004',
-          ],
+          userIds: ['00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000004'],
         }),
       )
     }
@@ -178,7 +175,8 @@ describe('TimelinePage', () => {
     vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
       const url = requestURL(input)
       if (url === '/api/posts') return Promise.resolve(new Response(null, { status: 500 }))
-      if (url.startsWith('/api/timeline')) return Promise.resolve(jsonResponse(initialTimelineResponse))
+      if (url.startsWith('/api/timeline'))
+        return Promise.resolve(jsonResponse(initialTimelineResponse))
       return Promise.resolve(jsonResponse({ userIds: [] }))
     })
     renderTimeline()
