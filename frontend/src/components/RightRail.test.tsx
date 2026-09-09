@@ -10,8 +10,9 @@ describe('RightRail', () => {
   beforeEach(() => {
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: string) => {
-        if (input === '/api/me/following') {
+      vi.fn((input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : input.toString()
+        if (url === '/api/me/following') {
           return Promise.resolve(
             new Response(JSON.stringify({ userIds: ['00000000-0000-0000-0000-000000000004'] }), {
               status: 200,

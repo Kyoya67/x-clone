@@ -15,8 +15,9 @@ const postResponse = {
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: string) => {
-      if (input === '/api/me/following') {
+    vi.fn((input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      if (url === '/api/me/following') {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -81,8 +82,9 @@ describe('TimelinePage', () => {
 
   it('displays an error when the post API fails', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch).mockImplementation((input: string) => {
-      if (input === '/api/me/following') {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      if (url === '/api/me/following') {
         return Promise.resolve(
           new Response(JSON.stringify({ userIds: [] }), {
             status: 200,
