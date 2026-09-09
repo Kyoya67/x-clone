@@ -1,0 +1,297 @@
+openapi: 3.0.3
+info:
+  title: X Clone API
+  version: 0.1.0
+  description: X clone application backend API.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Posts
+  - name: Follows
+  - name: Timeline
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Check API health
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts:
+    post:
+      tags: [Posts]
+      operationId: createPost
+      summary: Create a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '201':
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /users/{userId}/follow:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    put:
+      tags: [Follows]
+      operationId: followUser
+      summary: Follow a user
+      responses:
+        '204':
+          description: User followed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      tags: [Follows]
+      operationId: unfollowUser
+      summary: Unfollow a user
+      responses:
+        '204':
+          description: User unfollowed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /me/following:
+    get:
+      tags: [Follows]
+      operationId: getMyFollowing
+      summary: Get users followed by the current user
+      responses:
+        '200':
+          description: Followed user identifiers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowingResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /timeline:
+    get:
+      tags: [Timeline]
+      operationId: getTimeline
+      summary: Get the current user's timeline
+      parameters:
+        - name: feed
+          in: query
+          description: Timeline feed to retrieve
+          schema:
+            type: string
+            enum: [for-you, following]
+            default: for-you
+      responses:
+        '200':
+          description: Timeline posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Target user's identifier
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication is required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: A dependent service is temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    CreatePostRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 280
+          example: Hello, world!
+
+    Post:
+      type: object
+      required: [id, authorId, content, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      required: [id, handle, displayName, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+          description: Unique username without the @ prefix
+          example: sho_sato
+        displayName:
+          type: string
+          example: 佐藤翔
+        bio:
+          type: string
+          example: Software engineer
+        createdAt:
+          type: string
+          format: date-time
+
+    Follow:
+      type: object
+      required: [followerId, followeeId, createdAt]
+      properties:
+        followerId:
+          type: string
+          format: uuid
+          description: User who follows another user
+        followeeId:
+          type: string
+          format: uuid
+          description: User being followed
+        createdAt:
+          type: string
+          format: date-time
+
+    FollowingResponse:
+      type: object
+      required: [userIds]
+      properties:
+        userIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    TimelineResponse:
+      type: object
+      required: [posts]
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelinePost'
+
+    TimelinePost:
+      type: object
+      required: [id, content, createdAt, author]
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          $ref: '#/components/schemas/TimelineAuthor'
+
+    TimelineAuthor:
+      type: object
+      required: [id, handle, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+          example: sho_sato
+        displayName:
+          type: string
+          example: 佐藤翔
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: content is required
