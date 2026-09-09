@@ -9,9 +9,17 @@ import (
 type fakeFollowRepository struct {
 	followCalled   bool
 	unfollowCalled bool
+	listCalled     bool
 	followerID     string
 	followeeID     string
+	followeeIDs    []string
 	err            error
+}
+
+func (f *fakeFollowRepository) ListFolloweeIDs(_ context.Context, followerID string) ([]string, error) {
+	f.listCalled = true
+	f.followerID = followerID
+	return f.followeeIDs, f.err
 }
 
 func (f *fakeFollowRepository) Follow(_ context.Context, followerID, followeeID string) error {
@@ -75,5 +83,21 @@ func TestFollowServiceUnfollowRejectsSelfFollow(t *testing.T) {
 	}
 	if repository.unfollowCalled {
 		t.Fatal("repository should not be called")
+	}
+}
+
+func TestFollowServiceListFolloweeIDs(t *testing.T) {
+	repository := &fakeFollowRepository{followeeIDs: []string{"followee-1", "followee-2"}}
+	service := NewFollowService(repository)
+
+	followeeIDs, err := service.ListFolloweeIDs(context.Background(), "follower-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !repository.listCalled || repository.followerID != "follower-1" {
+		t.Fatalf("unexpected repository call: %+v", repository)
+	}
+	if len(followeeIDs) != 2 || followeeIDs[0] != "followee-1" || followeeIDs[1] != "followee-2" {
+		t.Fatalf("unexpected followee IDs: %v", followeeIDs)
 	}
 }

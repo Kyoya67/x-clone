@@ -1,6 +1,6 @@
-import { createContext, ReactNode, useContext, useState } from 'react'
-import { followUser, unfollowUser } from '../api/follows'
-import { findUserByHandle } from '../data/users'
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
+import { fetchFollowingUserIDs, followUser, unfollowUser } from '../api/follows'
+import { findUserByHandle, findUserByID } from '../data/users'
 
 type FollowingContextValue = {
   followingHandles: string[]
@@ -12,9 +12,25 @@ type FollowingContextValue = {
 const FollowingContext = createContext<FollowingContextValue | null>(null)
 
 export function FollowingProvider({ children }: { children: ReactNode }) {
-  const [followingHandles, setFollowingHandles] = useState(['@sho_sato', '@hanako_s'])
+  const [followingHandles, setFollowingHandles] = useState<string[]>([])
   const [updatingHandles, setUpdatingHandles] = useState<string[]>([])
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const loadFollowing = async () => {
+      try {
+        const userIDs = await fetchFollowingUserIDs()
+        const handles = userIDs
+          .map((userID) => findUserByID(userID)?.handle)
+          .filter((handle): handle is string => handle !== undefined)
+        setFollowingHandles(handles)
+      } catch {
+        setError('フォロー状態の取得に失敗しました。時間をおいて再度お試しください。')
+      }
+    }
+
+    void loadFollowing()
+  }, [])
 
   const toggleFollowing = async (handle: string) => {
     const user = findUserByHandle(handle)

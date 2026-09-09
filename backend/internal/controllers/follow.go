@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"regexp"
 
@@ -18,9 +19,14 @@ type FollowController struct {
 type FollowService interface {
 	Follow(ctx context.Context, followerID, followeeID string) error
 	Unfollow(ctx context.Context, followerID, followeeID string) error
+	ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error)
 }
 
 type followAction func(ctx context.Context, followerID, followeeID string) error
+
+type followingResponse struct {
+	UserIDs []string `json:"userIds"`
+}
 
 func NewFollowController(service FollowService) *FollowController {
 	return &FollowController{service: service}
@@ -32,6 +38,21 @@ func (c *FollowController) Follow(w http.ResponseWriter, r *http.Request) {
 
 func (c *FollowController) Unfollow(w http.ResponseWriter, r *http.Request) {
 	c.handleFollowAction(w, r, c.service.Unfollow)
+}
+
+func (c *FollowController) ListFollowing(w http.ResponseWriter, r *http.Request) {
+	followeeIDs, err := c.service.ListFolloweeIDs(r.Context(), fixedAuthorID)
+	if err != nil {
+		apperrors.ErrorHandler(w, r, err)
+		return
+	}
+
+	response := followingResponse{UserIDs: followeeIDs}
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		apperrors.ErrorHandler(w, r, err)
+	}
 }
 
 func (c *FollowController) handleFollowAction(w http.ResponseWriter, r *http.Request, action followAction) {

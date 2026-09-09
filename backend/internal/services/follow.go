@@ -15,6 +15,7 @@ type FollowService struct {
 type FollowRepository interface {
 	Follow(ctx context.Context, followerID, followeeID string) error
 	Unfollow(ctx context.Context, followerID, followeeID string) error
+	ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error)
 }
 
 func NewFollowService(repository FollowRepository) *FollowService {
@@ -33,6 +34,10 @@ func (s *FollowService) Unfollow(ctx context.Context, followerID, followeeID str
 		return err
 	}
 	return s.repository.Unfollow(ctx, followerID, followeeID)
+}
+
+func (s *FollowService) ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error) {
+	return s.repository.ListFolloweeIDs(ctx, followerID)
 }
 
 func validateFollowRelation(followerID, followeeID string) error {

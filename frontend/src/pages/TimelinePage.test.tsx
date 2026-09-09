@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,12 +15,27 @@ const postResponse = {
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(postResponse), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    ),
+    vi.fn((input: string) => {
+      if (input === '/api/me/following') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              userIds: [
+                '00000000-0000-0000-0000-000000000002',
+                '00000000-0000-0000-0000-000000000004',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(postResponse), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }),
   )
 })
 
@@ -36,6 +51,11 @@ function renderTimeline() {
       </FollowingProvider>
     </MemoryRouter>,
   )
+}
+
+function productTeamFollowButton() {
+  const profileLink = screen.getByRole('link', { name: /プロダクト開発部/ })
+  return within(profileLink.parentElement as HTMLElement).getByRole('button')
 }
 
 describe('TimelinePage', () => {
@@ -59,7 +79,17 @@ describe('TimelinePage', () => {
 
   it('displays an error when the post API fails', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 500 }))
+    vi.mocked(fetch).mockImplementation((input: string) => {
+      if (input === '/api/me/following') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ userIds: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response(null, { status: 500 }))
+    })
     renderTimeline()
     const composer = screen.getByPlaceholderText('いまどうしてる？')
     await user.type(composer, '失敗する投稿')
@@ -78,6 +108,7 @@ describe('TimelinePage', () => {
   it('shows followed users posts in the following tab', async () => {
     const user = userEvent.setup()
     renderTimeline()
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/me/following'))
     await user.click(screen.getByRole('tab', { name: 'フォロー中' }))
     expect(
       screen.getByText('新しいサービスの最初の一歩。ユーザーが迷わず使える体験を大切にしたい。'),
@@ -93,7 +124,8 @@ describe('TimelinePage', () => {
     const user = userEvent.setup()
     renderTimeline()
 
-    await user.click(screen.getByRole('button', { name: 'フォロー' }))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/me/following'))
+    await user.click(productTeamFollowButton())
     await user.click(screen.getByRole('tab', { name: 'フォロー中' }))
 
     expect(

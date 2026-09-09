@@ -105,3 +105,30 @@ func TestFollowRepositoryUnfollowReturnsDatabaseError(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFollowRepositoryListFolloweeIDs(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT followee_id
+		FROM follows
+		WHERE follower_id = $1
+		ORDER BY created_at ASC`)).
+		WithArgs("follower-1").
+		WillReturnRows(sqlmock.NewRows([]string{"followee_id"}).AddRow("followee-1").AddRow("followee-2"))
+
+	repository := NewFollowRepository(db)
+	followeeIDs, err := repository.ListFolloweeIDs(context.Background(), "follower-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(followeeIDs) != 2 || followeeIDs[0] != "followee-1" || followeeIDs[1] != "followee-2" {
+		t.Fatalf("unexpected followee IDs: %v", followeeIDs)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

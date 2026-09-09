@@ -25,6 +25,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	r.HandleFunc("/docs", controllers.SwaggerUI).Methods(http.MethodGet)
 	r.HandleFunc("/openapi.yaml", controllers.OpenAPISpec).Methods(http.MethodGet)
 	r.HandleFunc("/posts", postController.Create).Methods(http.MethodPost)
+	r.HandleFunc("/me/following", followController.ListFollowing).Methods(http.MethodGet)
 	r.HandleFunc("/users/{userId}/follow", followController.Follow).Methods(http.MethodPut)
 	r.HandleFunc("/users/{userId}/follow", followController.Unfollow).Methods(http.MethodDelete)
 

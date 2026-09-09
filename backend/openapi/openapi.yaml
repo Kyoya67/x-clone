@@ -76,6 +76,21 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
+  /me/following:
+    get:
+      tags: [Follows]
+      operationId: getMyFollowing
+      summary: Get users followed by the current user
+      responses:
+        '200':
+          description: Followed user identifiers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowingResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
   /timeline:
     get:
       tags: [Timeline]
@@ -227,6 +242,16 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    FollowingResponse:
+      type: object
+      required: [userIds]
+      properties:
+        userIds:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     TimelineResponse:
       type: object

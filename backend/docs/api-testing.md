@@ -17,16 +17,18 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - UUID形式でない`userId`を拒否する
 - Serviceの入力エラーを`400 Bad Request`へ変換する
 - Serviceの内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
+- ログインユーザーがフォローしているユーザーIDを`200 OK`で返す
 
 ### カバレッジ結果
 
 constructorはテスト対象に含めない。constructorは依存関係を構造体へ設定するだけで、独立した振る舞いを持たないためである。
 
-| 対象           | 関数     | カバレッジ |
-| -------------- | -------- | ---------: |
-| PostController | `Create` |     100.0% |
-| FollowController | `Follow` |     100.0% |
-| FollowController | `Unfollow` |     100.0% |
+| 対象               | 関数               | カバレッジ |
+| ------------------ | ------------------ | ---------: |
+| PostController     | `Create`           |     100.0% |
+| FollowController   | `Follow`           |     100.0% |
+| FollowController   | `Unfollow`         |     100.0% |
+| FollowController   | `ListFollowing`    |    未再計測 |
 
 計測コマンド：
 
@@ -45,6 +47,7 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 - 投稿内容の前後の空白を除去してrepositoryへ渡す
 - 1文字未満の投稿を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
+- フォロー中ユーザーIDの取得をrepositoryへ委譲する
 
 フォローServiceでは、次の観点をテストしている。
 
@@ -54,11 +57,12 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 
 ### カバレッジ結果
 
-| 対象        | 関数     | カバレッジ |
-| ----------- | -------- | ---------: |
-| PostService | `Create` |     100.0% |
-| FollowService | `Follow` |     100.0% |
-| FollowService | `Unfollow` |     100.0% |
+| 対象             | 関数               | カバレッジ |
+| ---------------- | ------------------ | ---------: |
+| PostService      | `Create`           |     100.0% |
+| FollowService    | `Follow`           |     100.0% |
+| FollowService    | `Unfollow`         |     100.0% |
+| FollowService    | `ListFolloweeIDs`  |    未再計測 |
 
 計測コマンド：
 
@@ -82,6 +86,7 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 
 - フォロー登録SQLと引数を検証する
 - フォロー解除SQLと引数を検証する
+- フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
 
 ### カバレッジ結果
@@ -94,6 +99,7 @@ constructorはテスト対象に含めない。
 | PostgreSQL error classification | `classifyPostgresError` |     100.0% |
 | FollowRepository                | `Follow`                |     100.0% |
 | FollowRepository                | `Unfollow`              |     100.0% |
+| FollowRepository                | `ListFolloweeIDs`       |    未再計測 |
 
 計測コマンド：
 

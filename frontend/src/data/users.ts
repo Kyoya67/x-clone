@@ -52,3 +52,7 @@ export const users: User[] = [
 export function findUserByHandle(handle: string) {
   return users.find((user) => user.handle === handle)
 }
+
+export function findUserByID(id: string) {
+  return users.find((user) => user.id === id)
+}

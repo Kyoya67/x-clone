@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,9 +18,17 @@ const followeeID = "00000000-0000-0000-0000-000000000002"
 type fakeFollowService struct {
 	followCalled   bool
 	unfollowCalled bool
+	listCalled     bool
 	followerID     string
 	followeeID     string
+	followeeIDs    []string
 	err            error
+}
+
+func (f *fakeFollowService) ListFolloweeIDs(_ context.Context, followerID string) ([]string, error) {
+	f.listCalled = true
+	f.followerID = followerID
+	return f.followeeIDs, f.err
 }
 
 func (f *fakeFollowService) Follow(_ context.Context, followerID, followeeID string) error {
@@ -65,6 +74,31 @@ func TestFollowControllerUnfollow(t *testing.T) {
 	}
 	if !service.unfollowCalled || service.followerID != fixedAuthorID || service.followeeID != followeeID {
 		t.Fatalf("unexpected service call: %+v", service)
+	}
+}
+
+func TestFollowControllerListFollowing(t *testing.T) {
+	service := &fakeFollowService{followeeIDs: []string{followeeID}}
+	controller := NewFollowController(service)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+
+	controller.ListFollowing(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !service.listCalled || service.followerID != fixedAuthorID {
+		t.Fatalf("unexpected service call: %+v", service)
+	}
+	var response struct {
+		UserIDs []string `json:"userIds"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.UserIDs) != 1 || response.UserIDs[0] != followeeID {
+		t.Fatalf("unexpected response: %v", response.UserIDs)
 	}
 }
 

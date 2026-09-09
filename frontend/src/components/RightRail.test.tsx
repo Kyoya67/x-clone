@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,8 +8,26 @@ import { FollowingProvider } from '../state/FollowingContext'
 
 describe('RightRail', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string) => {
+        if (input === '/api/me/following') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ userIds: ['00000000-0000-0000-0000-000000000004'] }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          )
+        }
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }),
+    )
   })
+
+  function productTeamFollowButton() {
+    const profileLink = screen.getByRole('link', { name: /プロダクト開発部/ })
+    return within(profileLink.parentElement as HTMLElement).getByRole('button')
+  }
 
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -23,7 +42,7 @@ describe('RightRail', () => {
         </FollowingProvider>
       </MemoryRouter>,
     )
-    const followButton = screen.getByRole('button', { name: 'フォロー' })
+    const followButton = productTeamFollowButton()
     await user.click(followButton)
     await waitFor(() => expect(followButton).toHaveTextContent('フォロー中'))
     expect(fetch).toHaveBeenCalledWith('/api/users/00000000-0000-0000-0000-000000000005/follow', {
@@ -50,7 +69,7 @@ describe('RightRail', () => {
       </MemoryRouter>,
     )
 
-    const followButton = screen.getByRole('button', { name: 'フォロー' })
+    const followButton = productTeamFollowButton()
     await user.click(followButton)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
