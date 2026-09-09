@@ -54,7 +54,9 @@ function renderTimeline() {
 }
 
 function productTeamFollowButton() {
-  const profileLink = screen.getByRole('link', { name: /プロダクト開発部/ })
+  const followCard = screen.getByRole('heading', { name: 'おすすめユーザー' }).closest('section')
+  if (!followCard) throw new Error('follow card was not found')
+  const profileLink = within(followCard).getByRole('link', { name: /プロダクト開発部/ })
   return within(profileLink.parentElement as HTMLElement).getByRole('button')
 }
 
