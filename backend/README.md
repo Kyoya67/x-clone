@@ -126,6 +126,10 @@ go run ./cmd/api
 go test ./...
 ```
 
+### カバレッジ
+
+テスト方針、テスト対象、カバレッジ結果は[`docs/api-testing.md`](docs/api-testing.md)を参照してください。
+
 ## コード整形
 
 Goの標準フォーマッターを使用します。VS Codeでは、ルートの[`.vscode/settings.json`](../.vscode/settings.json)で保存時フォーマットを有効にしており、Go拡張機能が保存時に自動実行します。

@@ -23,7 +23,7 @@ func ErrorHandler(w http.ResponseWriter, req *http.Request, err error) {
 
 func statusCodeFor(code ErrCode) int {
 	switch code {
-	case BadParam, ReqBodyDecodeFailed, RequestBodyTooLarge:
+	case BadParam, ReqBodyDecodeFailed, RequestBodyTooLarge, UnknownField:
 		return http.StatusBadRequest
 	case NotFound:
 		return http.StatusNotFound

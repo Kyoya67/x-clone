@@ -10,6 +10,7 @@ const (
 	ResponseEncodeFailed ErrCode = "R003"
 	NotFound             ErrCode = "R004"
 	RequestBodyTooLarge  ErrCode = "R005"
+	UnknownField         ErrCode = "R006"
 
 	DependencyUnavailable ErrCode = "D001"
 	DataMappingFailed     ErrCode = "D006"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/models"
@@ -26,8 +27,15 @@ func NewPostController(service PostService) *PostController {
 func (c *PostController) Create(w http.ResponseWriter, r *http.Request) {
 	var request models.CreatePostRequest
 	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
-		apperrors.ErrorHandler(w, r, apperrors.ReqBodyDecodeFailed.Wrap(err, "request body must be valid JSON"))
+		errCode := apperrors.ReqBodyDecodeFailed
+		message := "request body must be valid JSON"
+		if strings.HasPrefix(err.Error(), "json: unknown field ") {
+			errCode = apperrors.UnknownField
+			message = "request contains an unknown field"
+		}
+		apperrors.ErrorHandler(w, r, errCode.Wrap(err, message))
 		return
 	}
 
