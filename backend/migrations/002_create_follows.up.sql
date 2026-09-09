@@ -7,5 +7,3 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 
 CREATE INDEX IF NOT EXISTS follows_followee_id_idx ON follows (followee_id);
-
-q
