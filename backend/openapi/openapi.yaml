@@ -34,8 +34,6 @@ paths:
       tags: [Posts]
       operationId: createPost
       summary: Create a post
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -51,8 +49,6 @@ paths:
                 $ref: '#/components/schemas/Post'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
 
   /users/{userId}/follow:
     parameters:

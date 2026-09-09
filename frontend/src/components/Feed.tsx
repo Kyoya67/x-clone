@@ -6,7 +6,7 @@ export function Feed({
   onToggleLike,
 }: {
   posts: Post[]
-  onToggleLike: (id: number) => void
+  onToggleLike: (id: string) => void
 }) {
   return (
     <div className="feed">

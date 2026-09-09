@@ -33,6 +33,7 @@ func main() {
 
 	addr := ":" + port
 	log.Printf("backend server listening on %s", addr)
+	log.Printf("Swagger UI available at http://localhost:%s/docs", port)
 	if err := http.ListenAndServe(addr, routers.NewRouter(db)); err != nil {
 		log.Fatal(err)
 	}

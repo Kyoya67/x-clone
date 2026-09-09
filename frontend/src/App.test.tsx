@@ -11,13 +11,13 @@ describe('App routes', () => {
     ['/messages', 'チャット'],
     ['/profile', 'プロフィール'],
     ['/more', 'もっと見る'],
-  ])('%sで%sを表示する', (path, title) => {
+  ])('renders %s at %s', (path, title) => {
     window.history.pushState({}, '', path)
     render(<App />)
     expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
   })
 
-  it('投稿者の名前をクリックするとプロフィールへ遷移する', async () => {
+  it('navigates to a profile when clicking an author name', async () => {
     const user = userEvent.setup()
     window.history.pushState({}, '', '/')
     render(<App />)
