@@ -95,15 +95,23 @@ paths:
     get:
       tags: [Timeline]
       operationId: getTimeline
-      summary: Get the current user's timeline
+      summary: Get the authenticated user's timeline
+      security:
+        - bearerAuth: []
       parameters:
-        - name: feed
+        - name: cursor
           in: query
-          description: Timeline feed to retrieve
+          description: Cursor for the next page
           schema:
             type: string
-            enum: [for-you, following]
-            default: for-you
+        - name: limit
+          in: query
+          description: Number of posts to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: Timeline posts
@@ -111,10 +119,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TimelineResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:
@@ -254,36 +260,10 @@ components:
         posts:
           type: array
           items:
-            $ref: '#/components/schemas/TimelinePost'
-
-    TimelinePost:
-      type: object
-      required: [id, content, createdAt, author]
-      properties:
-        id:
+            $ref: '#/components/schemas/Post'
+        nextCursor:
           type: string
-          format: uuid
-        content:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        author:
-          $ref: '#/components/schemas/TimelineAuthor'
-
-    TimelineAuthor:
-      type: object
-      required: [id, handle, displayName]
-      properties:
-        id:
-          type: string
-          format: uuid
-        handle:
-          type: string
-          example: sho_sato
-        displayName:
-          type: string
-          example: 佐藤翔
+          nullable: true
 
     ErrorResponse:
       type: object
