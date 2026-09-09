@@ -101,3 +101,27 @@ func TestUnfollow(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTimeline(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta("INNER JOIN follows ON follows.followee_id = posts.author_id")).
+		WithArgs("00000000-0000-0000-0000-000000000001").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "content", "created_at", "author_id", "handle", "display_name"}))
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/timeline?feed=following", nil)
+
+	NewRouter(db).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

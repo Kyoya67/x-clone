@@ -95,23 +95,15 @@ paths:
     get:
       tags: [Timeline]
       operationId: getTimeline
-      summary: Get the authenticated user's timeline
-      security:
-        - bearerAuth: []
+      summary: Get the current user's timeline
       parameters:
-        - name: cursor
+        - name: feed
           in: query
-          description: Cursor for the next page
+          description: Timeline feed to retrieve
           schema:
             type: string
-        - name: limit
-          in: query
-          description: Number of posts to return
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
+            enum: [for-you, following]
+            default: for-you
       responses:
         '200':
           description: Timeline posts
@@ -119,8 +111,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TimelineResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
 components:
   securitySchemes:
@@ -260,10 +254,36 @@ components:
         posts:
           type: array
           items:
-            $ref: '#/components/schemas/Post'
-        nextCursor:
+            $ref: '#/components/schemas/TimelinePost'
+
+    TimelinePost:
+      type: object
+      required: [id, content, createdAt, author]
+      properties:
+        id:
           type: string
-          nullable: true
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          $ref: '#/components/schemas/TimelineAuthor'
+
+    TimelineAuthor:
+      type: object
+      required: [id, handle, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+          example: sho_sato
+        displayName:
+          type: string
+          example: 佐藤翔
 
     ErrorResponse:
       type: object
