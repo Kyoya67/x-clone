@@ -45,6 +45,26 @@ docker compose down
 
 データベースのスキーマ変更は`golang-migrate`で管理します。PostgreSQLを起動したあと、`backend`ディレクトリで以下を実行してください。
 
+Makefileから実行する場合：
+
+```bash
+make migrate-up
+```
+
+Makefileでは、既存の`migrate`コンテナを一時的に起動して未適用のマイグレーションを適用します。接続先を変更する場合は、`MIGRATE_DATABASE_URL`を指定します。
+
+```bash
+make migrate-up MIGRATE_DATABASE_URL='postgres://user:password@postgres:5432/db?sslmode=disable'
+```
+
+最後に適用したマイグレーションを1つ戻す場合：
+
+```bash
+make migrate-down
+```
+
+Makefileを使わず直接実行する場合：
+
 ```bash
 docker compose run --rm migrate \
   -path=/migrations \
@@ -53,15 +73,6 @@ docker compose run --rm migrate \
 ```
 
 適用済みのマイグレーションは、PostgreSQLの`schema_migrations`テーブルで管理されます。未適用のマイグレーションだけが順番に適用されるため、同じコマンドを再実行しても適用済みのSQLは再実行されません。
-
-最後に適用したマイグレーションを1つ戻す場合：
-
-```bash
-docker compose run --rm migrate \
-  -path=/migrations \
-  -database 'postgres://app:app@postgres:5432/app?sslmode=disable' \
-  down 1
-```
 
 `down`はテーブル削除などの変更を行うため、開発データが失われる可能性があります。
 
@@ -202,6 +213,7 @@ backend/
 ├── cmd/api/             # APIサーバーの起動
 │   └── main.go
 ├── docker-compose.yml    # ローカルPostgreSQL
+├── Makefile               # マイグレーションコマンド
 ├── .env.example           # 環境変数のサンプル
 ├── openapi/              # API仕様
 │   └── openapi.yaml
