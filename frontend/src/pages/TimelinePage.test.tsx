@@ -89,6 +89,20 @@ describe('TimelinePage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('shows a newly followed users posts in the following tab', async () => {
+    const user = userEvent.setup()
+    renderTimeline()
+
+    await user.click(screen.getByRole('button', { name: 'フォロー' }))
+    await user.click(screen.getByRole('tab', { name: 'フォロー中' }))
+
+    expect(
+      await screen.findByText(
+        '今週は開発環境の改善に取り組んでいます。小さな改善を積み重ねていきます。',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('updates the like count and state when liked', async () => {
     const user = userEvent.setup()
     renderTimeline()

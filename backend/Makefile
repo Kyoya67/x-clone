@@ -17,3 +17,4 @@ migrate-down:
 seed:
 	docker compose exec -T postgres psql -U app -d app < seeds/001_local_users.sql
 	docker compose exec -T postgres psql -U app -d app < seeds/002_local_follows.sql
+	docker compose exec -T postgres psql -U app -d app < seeds/003_local_posts.sql
