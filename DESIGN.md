@@ -122,7 +122,7 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ### バックエンドの構成
 
-Goバックエンドは、HTTPサーバーの起動、ルーティング、HTTPリクエスト処理、業務ロジック、データアクセスの責務を分ける。現時点ではhealth endpointのみ実装しているため、実際に使用しているのは`cmd/api`、`internal/controllers`、`internal/routers`である。Post機能の実装時に`services`、`repositories`、`models`を追加する。
+Goバックエンドは、HTTPサーバーの起動、ルーティング、HTTPリクエスト処理、業務ロジック、データアクセスの責務を分ける。`cmd/api`、`internal/controllers`、`internal/services`、`internal/repositories`、`internal/models`を使用し、投稿・フォロー・タイムラインを実装する。
 
 ```text
 cmd/api/main.go
@@ -143,6 +143,37 @@ internal/models/ ─────── データモデル
 ```
 
 `main.go`ではDBを初期化して`routers.NewRouter(db)`へ渡す形を維持する。controllerを個別に`NewRouter`の引数へ追加せず、必要なcontrollerやserviceの生成は`router.go`に集約することで、アプリケーションの組み立てとルート定義を追いやすくする。health endpointのようにDBやserviceを必要としない処理は、controller単体で実装する。
+
+#### データベース構成
+
+ユーザー、投稿、フォロー関係はそれぞれ1つのテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
+
+`````text
+users
+├── id (PK)
+├── handle
+├── display_name
+└── bio
+    │ 1人のユーザーは複数の投稿を作成できる
+    │
+    └──< posts
+         ├── id (PK)
+         ├── author_id (FK → users.id)
+         ├── content
+         └── created_at
+
+users（フォローする側）                 users（フォローされる側）
+        │                                         ▲
+        │ follower_id                              │ followee_id
+        └──────────────> follows <─────────────────┘
+                          ├── follower_id (PK, FK → users.id)
+                          ├── followee_id (PK, FK → users.id)
+                          └── created_at
+`````
+
+`follows`は、同じ`users`テーブルを2つの役割で参照する。たとえば田中が佐藤をフォローすると、`follower_id`は田中のID、`followee_id`は佐藤のIDとなる。`(follower_id, followee_id)`を複合主キーにすることで、同じユーザーを重複してフォローできない。また、`follower_id <> followee_id`の制約により、自分自身のフォローを防ぐ。
+
+タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
 #### PostgreSQLとMySQLの比較
 
