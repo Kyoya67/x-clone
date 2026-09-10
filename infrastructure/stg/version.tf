@@ -10,8 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = "ap-northeast-1"
-  profile = "x-clone-terraform-stg"
+  region = "ap-northeast-1"
 
   default_tags {
     tags = {
