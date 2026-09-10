@@ -7,7 +7,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.name}-public-rt"
+    Name = "public-rt"
   })
 }
 
@@ -27,7 +27,7 @@ resource "aws_route_table" "app_private" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.name}-app-private-rt"
+    Name = "app-private-rt"
   })
 }
 
@@ -42,7 +42,7 @@ resource "aws_route_table" "db_private" {
   vpc_id = var.vpc_id
 
   tags = merge(var.tags, {
-    Name = "${var.name}-db-private-rt"
+    Name = "db-private-rt"
   })
 }
 

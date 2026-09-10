@@ -17,7 +17,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name = "${var.name}-public-${each.key}"
+    Name = "public-${each.key}"
     Tier = "public"
   })
 }
@@ -30,7 +30,7 @@ resource "aws_subnet" "app_private" {
   cidr_block        = each.value.app_private_cidr
 
   tags = merge(var.tags, {
-    Name = "${var.name}-app-private-${each.key}"
+    Name = "app-private-${each.key}"
     Tier = "app-private"
   })
 }
@@ -43,7 +43,7 @@ resource "aws_subnet" "db_private" {
   cidr_block        = each.value.db_private_cidr
 
   tags = merge(var.tags, {
-    Name = "${var.name}-db-private-${each.key}"
+    Name = "db-private-${each.key}"
     Tier = "db-private"
   })
 }

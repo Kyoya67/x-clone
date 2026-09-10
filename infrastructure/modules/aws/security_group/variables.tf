@@ -1,8 +1,3 @@
-variable "name" {
-  type        = string
-  description = "Prefix used when naming the security group."
-}
-
 variable "vpc_id" {
   type        = string
   description = "VPC in which the security group is created."

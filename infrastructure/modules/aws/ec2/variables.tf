@@ -1,8 +1,3 @@
-variable "name" {
-  type        = string
-  description = "Prefix used when naming the NAT instance."
-}
-
 variable "public_subnet_id" {
   type        = string
   description = "Public subnet in which the NAT instance is launched."

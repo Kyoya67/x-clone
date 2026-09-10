@@ -1,8 +1,3 @@
-variable "name" {
-  type        = string
-  description = "Prefix used when naming subnets."
-}
-
 variable "vpc_id" {
   type        = string
   description = "VPC in which subnets are created."

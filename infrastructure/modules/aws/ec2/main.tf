@@ -40,7 +40,7 @@ resource "aws_instance" "nat" {
   EOT
 
   tags = merge(var.tags, {
-    Name = "${var.name}-nat-instance"
+    Name = "nat-instance"
     Role = "nat"
   })
 }

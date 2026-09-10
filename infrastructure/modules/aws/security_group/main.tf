@@ -1,10 +1,14 @@
 resource "aws_security_group" "nat" {
-  name        = "${var.name}-nat-instance"
+  name        = "nat-instance"
   description = "Allow outbound traffic from private application subnets through the NAT instance"
   vpc_id      = var.vpc_id
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = merge(var.tags, {
-    Name = "${var.name}-nat-instance-sg"
+    Name = "nat-instance-sg"
   })
 }
 
