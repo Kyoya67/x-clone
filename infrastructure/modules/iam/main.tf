@@ -56,6 +56,7 @@ resource "aws_iam_role" "task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
   tags               = var.tags
 }
+
 resource "aws_iam_role" "nat_ssm" {
   name = "nat-ssm"
   assume_role_policy = jsonencode({
