@@ -44,6 +44,8 @@ AWS_PROFILE=x-clone-terraform-stg terraform -chdir=infrastructure/stg apply
 
 ## ECS起動前に残っている作業
 
+アプリ用ユーザーの作成・権限付与・接続URL登録は[db-user管理コマンド](../../backend/docs/db-user.md)で行う。コードは実装済みだが、VPC内の実行環境は未整備で、実RDSへは未適用。
+
 - VPC内の一時タスクなどから接続し、アプリ用DBユーザーと権限を設定する。管理者dbadminを通常のアプリ実行には使用しない。
 - アプリ用認証情報のSecrets Manager管理・ローテーション方針とECSへの注入を実装する。ECSが起動時に注入する値は、シークレット更新だけでは既存タスクに反映されないため、更新時の再起動も設計する。
 - マイグレーションを実行する。RDSの作成だけではusers・posts・followsテーブルは作られない。

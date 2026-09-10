@@ -226,4 +226,8 @@ erDiagram
 
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
+### DBユーザーの初期設定
+
+アプリ専用のapp_userは管理者向けGoコマンドで作成し、管理者dbadminとは分離する。通常のアプリ起動時にはユーザー作成や権限付与を行わない。Terraformにパスワード値を渡さず、管理コマンドがSecrets ManagerとPostgreSQLを操作する方針とした。現在のテーブルだけに読み書き権限を付与し、マイグレーション後に再実行する。新しいAWS SDK依存を追加せず、管理環境のAWS CLIを使用するため、Go・AWS CLIとVPC接続が実行条件となる。[実装範囲・再実行時の挙動](backend/docs/db-user.md)を参照。実RDSへの適用は未実施。
+
 ## 6. 今後の拡張性や運用を見据えた懸念点
