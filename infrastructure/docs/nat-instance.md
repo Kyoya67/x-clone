@@ -12,7 +12,7 @@ NAT GatewayはAWSが管理するが、NATインスタンスではOS更新、転�
 
 ## ブラウザからの接続
 
-EC2コンソールの「EC2 Instance Connect」で、Public IPv4とユーザー名ec2-userを指定する。NAT用Security Groupは、AWS管理プレフィックスリスト `com.amazonaws.ap-northeast-1.ec2-instance-connect` からTCP 22への接続を許可する。設定は `infrastructure/modules/aws/security_group/main.tf` で管理する。
+EC2コンソールの「EC2 Instance Connect」で、Public IPv4とユーザー名ec2-userを指定する。NAT用Security Groupは、AWS管理プレフィックスリスト `com.amazonaws.ap-northeast-1.ec2-instance-connect` からTCP 22への接続を許可する。設定は `infrastructure/modules/security_group/main.tf` で管理する。
 
 ## 確認コマンド
 

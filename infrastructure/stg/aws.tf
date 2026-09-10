@@ -1,5 +1,5 @@
 module "vpc" {
-  source = "../modules/aws/vpc"
+  source = "../modules/vpc"
 
   cidr_block = "10.0.0.0/16"
 
@@ -7,7 +7,7 @@ module "vpc" {
 }
 
 module "subnet" {
-  source = "../modules/aws/subnet"
+  source = "../modules/subnet"
 
   vpc_id             = module.vpc.id
   availability_zones = ["ap-northeast-1a", "ap-northeast-1c"]
@@ -20,14 +20,14 @@ module "subnet" {
 }
 
 module "internet_gateway" {
-  source = "../modules/aws/internet_gateway"
+  source = "../modules/internet_gateway"
 
   vpc_id = module.vpc.id
   tags   = local.common_tags
 }
 
 module "security_group" {
-  source = "../modules/aws/security_group"
+  source = "../modules/security_group"
 
   vpc_id                  = module.vpc.id
   app_private_cidr_blocks = module.subnet.app_private_cidr_blocks
@@ -35,7 +35,7 @@ module "security_group" {
 }
 
 module "ec2" {
-  source = "../modules/aws/ec2"
+  source = "../modules/ec2"
 
   public_subnet_id      = module.subnet.public_ids[0]
   nat_security_group_id = module.security_group.nat_id
@@ -43,7 +43,7 @@ module "ec2" {
 }
 
 module "route_table" {
-  source = "../modules/aws/route_table"
+  source = "../modules/route_table"
 
   vpc_id                   = module.vpc.id
   internet_gateway_id      = module.internet_gateway.id
