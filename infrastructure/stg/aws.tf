@@ -1,3 +1,39 @@
+module "ecs_task_definition" {
+  source = "../modules/ecs_task_definition"
+
+  family                  = "backend"
+  image                   = "${module.ecr.repository_url}:78694d"
+  execution_role_arn      = module.iam.execution_role_arn
+  task_role_arn           = module.iam.task_role_arn
+  database_url_secret_arn = module.secrets_manager.arn
+  log_group_name          = module.cloudwatch_logs.name
+  region                  = local.region
+  tags                    = local.common_tags
+}
+
+module "iam" {
+  source = "../modules/iam"
+
+  repository_arn          = module.ecr.arn
+  log_group_arn           = module.cloudwatch_logs.arn
+  database_url_secret_arn = module.secrets_manager.arn
+  tags                    = local.common_tags
+}
+
+module "cloudwatch_logs" {
+  source = "../modules/cloudwatch_logs"
+
+  name = "/ecs/backend"
+  tags = local.common_tags
+}
+
+module "secrets_manager" {
+  source = "../modules/secrets_manager"
+
+  name = "backend/database-url"
+  tags = local.common_tags
+}
+
 module "rds" {
   source = "../modules/rds"
 
