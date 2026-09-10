@@ -1,3 +1,15 @@
+module "rds" {
+  source = "../modules/rds"
+
+  identifier        = "app-db"
+  engine_version    = "16.15"
+  instance_class    = "db.t4g.micro"
+  multi_az          = false
+  subnet_ids        = module.subnet.db_private_ids
+  security_group_id = module.security_group.db_id
+  tags              = local.common_tags
+}
+
 module "ecr" {
   source = "../modules/ecr"
 

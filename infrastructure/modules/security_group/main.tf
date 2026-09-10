@@ -1,5 +1,45 @@
 data "aws_region" "current" {}
 
+# ECSタスクに割り当てるSG。受信ルールはALB構築時に追加する。
+resource "aws_security_group" "backend" {
+  name        = "backend"
+  description = "Backend ECS tasks"
+  vpc_id      = var.vpc_id
+  tags        = merge(var.tags, { Name = "backend-sg" })
+}
+
+resource "aws_security_group" "db" {
+  name        = "db"
+  description = "PostgreSQL access from backend tasks only"
+  vpc_id      = var.vpc_id
+  tags        = merge(var.tags, { Name = "db-sg" })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "db_from_backend" {
+  security_group_id            = aws_security_group.db.id
+  referenced_security_group_id = aws_security_group.backend.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+resource "aws_vpc_security_group_egress_rule" "backend_to_db" {
+  security_group_id            = aws_security_group.backend.id
+  referenced_security_group_id = aws_security_group.db.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+# イメージ取得・ログ送信・Secrets Managerへのアクセスに使用する。
+resource "aws_vpc_security_group_egress_rule" "backend_https" {
+  security_group_id = aws_security_group.backend.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
 data "aws_ec2_managed_prefix_list" "instance_connect" {
   name = "com.amazonaws.${data.aws_region.current.region}.ec2-instance-connect"
 }
