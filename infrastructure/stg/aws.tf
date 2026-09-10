@@ -1,3 +1,11 @@
+module "ecr" {
+  source = "../modules/ecr"
+
+  name        = "backend"
+  image_count = 3
+  tags        = local.common_tags
+}
+
 module "vpc" {
   source = "../modules/vpc"
 
