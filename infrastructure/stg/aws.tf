@@ -95,6 +95,7 @@ module "ec2" {
 
   public_subnet_id      = module.subnet.public_ids[0]
   nat_security_group_id = module.security_group.nat_id
+  instance_profile_name = module.iam.nat_instance_profile_name
   tags                  = local.common_tags
 }
 

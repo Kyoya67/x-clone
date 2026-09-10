@@ -230,4 +230,8 @@ erDiagram
 
 アプリ専用のapp_userは管理者向けGoコマンドで作成し、管理者dbadminとは分離する。通常のアプリ起動時にはユーザー作成や権限付与を行わない。Terraformにパスワード値を渡さず、管理コマンドがSecrets ManagerとPostgreSQLを操作する方針とした。現在のテーブルだけに読み書き権限を付与し、マイグレーション後に再実行する。新しいAWS SDK依存を追加せず、管理環境のAWS CLIを使用するため、Go・AWS CLIとVPC接続が実行条件となる。[実装範囲・再実行時の挙動](backend/docs/db-user.md)を参照。実RDSへの適用は未実施。
 
+### stgのDB管理接続
+
+ローカルの管理コマンドは、既存NATインスタンスを経由するSSMポートフォワーディングでRDSへ接続する。SSH方式から切り替え、SSH鍵や利用者の公開IP管理を不要にし、IAMで接続権限を制御する。既存のブラウザ版EC2 Instance Connect用SSHルールだけは維持する。DBはNATのSGから5432番を許可し、TLS検証のホスト名はRDSのまま維持する。SSM Agent・IAM設定とPCのプラグインが必要な点、ポート転送内のSQLはSSMログに残らない点がトレードオフとなる。[接続手順・未検証事項](infrastructure/docs/db-tunnel.md)を参照。
+
 ## 6. 今後の拡張性や運用を見据えた懸念点

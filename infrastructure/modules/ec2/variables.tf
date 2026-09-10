@@ -19,3 +19,7 @@ variable "tags" {
   description = "Tags applied to the NAT instance."
   default     = {}
 }
+variable "instance_profile_name" {
+  type        = string
+  description = "Instance profile granting the NAT host SSM Agent permissions."
+}

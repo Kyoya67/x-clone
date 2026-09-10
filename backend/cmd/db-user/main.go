@@ -18,14 +18,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
 	instance := flag.String("instance", "app-db", "RDS instance identifier")
 	secretID := flag.String("secret", "backend/database-url", "Application URL secret")
 	caFile := flag.String("ca-file", "", "Local RDS CA bundle path (required)")
+	tunnel := flag.String("tunnel", "", "Optional local SSM tunnel endpoint, e.g. 127.0.0.1:15432")
 	flag.Parse()
 	if *caFile == "" {
 		fmt.Fprintln(os.Stderr, "--ca-file is required")
@@ -33,7 +32,7 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := run(ctx, *instance, *secretID, *caFile); err != nil {
+	if err := run(ctx, *instance, *secretID, *caFile, *tunnel); err != nil {
 		// Never print SQL/driver/CLI errors, which can contain credentials.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -65,7 +64,7 @@ func aws(ctx context.Context, input any, output any, args ...string) error {
 	return nil
 }
 
-func run(ctx context.Context, instance, secretID, caFile string) error {
+func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 	if _, err := os.Stat(caFile); err != nil {
 		return errors.New("cannot read RDS CA file")
 	}
@@ -90,7 +89,7 @@ func run(ctx context.Context, instance, secretID, caFile string) error {
 		return errors.New("invalid administrator secret")
 	}
 	adminURL := connectionURL(metadata.Host, metadata.Port, admin.Username, admin.Password, caFile)
-	db, err := sql.Open("pgx", adminURL)
+	db, err := openDatabase(adminURL, tunnel)
 	if err != nil {
 		return errors.New("cannot initialize database connection")
 	}
@@ -136,7 +135,7 @@ func run(ctx context.Context, instance, secretID, caFile string) error {
 		return errors.New("cannot inspect application role")
 	}
 	if roleExists && existingURL != "" {
-		appDB, err := sql.Open("pgx", connectionURL(metadata.Host, metadata.Port, "app_user", password, caFile))
+		appDB, err := openDatabase(connectionURL(metadata.Host, metadata.Port, "app_user", password, caFile), tunnel)
 		if err != nil {
 			return errors.New("cannot initialize application connection")
 		}

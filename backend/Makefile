@@ -1,4 +1,4 @@
-.PHONY: migrate-up migrate-down seed ecr-push db-user
+.PHONY: migrate-up migrate-down seed ecr-push db-user db-tunnel
 
 MIGRATE_DATABASE_URL ?= postgres://app:app@postgres:5432/app?sslmode=disable
 
@@ -6,6 +6,11 @@ ECR_PROFILE ?= x-clone-terraform-stg
 ECR_REGION ?= ap-northeast-1
 ECR_REGISTRY ?= 089244387218.dkr.ecr.ap-northeast-1.amazonaws.com
 ECR_REPOSITORY ?= backend
+
+DB_TUNNEL ?=
+
+db-tunnel:
+	bash scripts/db-tunnel.sh
 
 # AWS_PROFILE/AWS_REGIONは実行者が指定。RDSへのネットワーク到達性が必要。
 db-user: SHELL := /bin/bash
@@ -17,7 +22,7 @@ db-user:
 		--connect-timeout 10 --max-time 60 \
 		https://truststore.pki.rds.amazonaws.com/ap-northeast-1/ap-northeast-1-bundle.pem \
 		--output "$$rds_ca_file"; \
-	go run ./cmd/db-user --ca-file "$$rds_ca_file"
+	go run ./cmd/db-user --ca-file "$$rds_ca_file" --tunnel "$(DB_TUNNEL)"
 
 migrate-up:
 	docker compose run --rm migrate \

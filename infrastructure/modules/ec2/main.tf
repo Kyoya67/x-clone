@@ -20,6 +20,7 @@ resource "aws_instance" "nat" {
   vpc_security_group_ids      = [var.nat_security_group_id]
   associate_public_ip_address = true
   source_dest_check           = false
+  iam_instance_profile        = var.instance_profile_name
 
   metadata_options {
     http_tokens = "required"

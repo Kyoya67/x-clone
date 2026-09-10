@@ -15,6 +15,15 @@ resource "aws_security_group" "db" {
   tags        = merge(var.tags, { Name = "db-sg" })
 }
 
+# SSM転送はNATホスト自身からRDSへの新しい接続になる。
+resource "aws_vpc_security_group_ingress_rule" "db_from_nat" {
+  security_group_id            = aws_security_group.db.id
+  referenced_security_group_id = aws_security_group.nat.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
 resource "aws_vpc_security_group_ingress_rule" "db_from_backend" {
   security_group_id            = aws_security_group.db.id
   referenced_security_group_id = aws_security_group.backend.id

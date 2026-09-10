@@ -56,3 +56,27 @@ resource "aws_iam_role" "task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
   tags               = var.tags
 }
+resource "aws_iam_role" "nat_ssm" {
+  name = "nat-ssm"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+  tags = var.tags
+}
+
+# SSM Agent用のAWS管理ポリシー。DBやSecrets Managerへの権限は付与しない。
+resource "aws_iam_role_policy_attachment" "nat_ssm" {
+  role       = aws_iam_role.nat_ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "nat_ssm" {
+  name = "nat-ssm"
+  role = aws_iam_role.nat_ssm.name
+  tags = var.tags
+}

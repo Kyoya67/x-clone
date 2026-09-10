@@ -4,7 +4,7 @@
 
 `cmd/db-user`は、管理者dbadminを使ってPostgreSQL内に`app_user`を作り、接続URLを既存のSecrets Manager `backend/database-url`へ登録する管理者向けGoコマンド。アプリのログインユーザーとは別であり、通常のHTTPサーバー起動時には実行しない。
 
-現在はコマンドと単体テストの実装まで。実RDSへのユーザー作成・Secret値登録はまだ実行していない。RDSはprivate配置のため、通常の手元のターミナルからは到達できない。実行環境と接続経路の準備が必要。
+現在はコマンドと単体テストの実装まで。実RDSへのユーザー作成・Secret値登録はまだ実行していない。ローカルからは[NATインスタンス経由のSSMポート転送](../../infrastructure/docs/db-tunnel.md)を使用する。利用前にSSM用IAM・SG設定のapplyとセッション開始が必要。
 
 ## 処理
 
@@ -23,7 +23,7 @@ DBとSecrets Managerは同一トランザクションにはできないため、
 ## 実行条件
 
 - Go、AWS CLI、curl、make、Bashがある環境。証明書の取得先へのHTTPS接続も必要。
-- RDSの5432番へ到達できるVPC接続。現状はbackend-sgを付与した実行環境からの接続のみ許可している。実行のためにDBを公開したりSGを全開放しない。
+- RDSの5432番へ到達できるVPC接続、または上記SSMポート転送。実行のためにDBを公開したりSGを全開放しない。
 - 実行者のIAM権限：rds:DescribeDBInstances、管理者SecretへのGetSecretValue、アプリ用SecretへのDescribeSecret・GetSecretValue・PutSecretValue。
 - 通常のECSタスクロールにはこれらの管理権限を追加しない。専用の管理環境を用意する。
 

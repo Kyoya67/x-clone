@@ -10,7 +10,7 @@
 | インスタンス | db.t4g.micro / Single-AZ | stgのコストを抑える。AZ障害時の自動フェイルオーバーはない |
 | ストレージ | 暗号化gp3、20 GiB、最大100 GiBへ自動拡張 | データ保護と容量不足への備え。拡張分は課金され、縮小できない |
 | ネットワーク | 既存のDB専用privateサブネット2つ、非公開 | DBサブネットグループは2 AZに跨がるが、Single-AZなのでDBが2台作られるわけではない |
-| SG | backend-sgから5432のみ許可 | NATインスタンスやインターネットからのDB接続は許可しない |
+| SG | backend-sgと管理用NATのSGから5432を許可 | NAT経由はSSMポート転送用。インターネットからの直接接続は許可しない |
 | TLS | rds.force_ssl=1 / rds-ca-rsa2048-g1 | 平文接続をDB側で拒否する。クライアント側のverify-fullも必要 |
 | 認証 | dbadmin、RDS管理のSecrets Managerシークレット | パスワードをコードやTerraform Stateに渡さない |
 | バックアップ | 7日保持、削除保護あり | 誤削除防止。削除時は保護解除と最終スナップショットが必要 |
@@ -44,7 +44,7 @@ AWS_PROFILE=x-clone-terraform-stg terraform -chdir=infrastructure/stg apply
 
 ## ECS起動前に残っている作業
 
-アプリ用ユーザーの作成・権限付与・接続URL登録は[db-user管理コマンド](../../backend/docs/db-user.md)で行う。コードは実装済みだが、VPC内の実行環境は未整備で、実RDSへは未適用。
+アプリ用ユーザーの作成・権限付与・接続URL登録は[db-user管理コマンド](../../backend/docs/db-user.md)で行う。[SSMポート転送](db-tunnel.md)用のコードとIAM・SG設定を追加済み。実RDSへのユーザー作成は未実施。
 
 - VPC内の一時タスクなどから接続し、アプリ用DBユーザーと権限を設定する。管理者dbadminを通常のアプリ実行には使用しない。
 - アプリ用認証情報のSecrets Manager管理・ローテーション方針とECSへの注入を実装する。ECSが起動時に注入する値は、シークレット更新だけでは既存タスクに反映されないため、更新時の再起動も設計する。
