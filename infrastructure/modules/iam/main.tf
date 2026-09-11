@@ -39,7 +39,7 @@ resource "aws_iam_policy" "execution" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = var.database_url_secret_arn
+        Resource = var.database_secret_arn
       }
     ]
   })

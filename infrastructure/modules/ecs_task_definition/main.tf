@@ -22,12 +22,13 @@ resource "aws_ecs_task_definition" "api" {
     portMappings           = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
       { name = "PORT", value = "8080" },
-      { name = "DATABASE_SSL_MODE", value = "verify-full" }
+      { name = "DB_HOST", value = var.backend.database_host },
+      { name = "DB_PORT", value = "5432" }
     ]
-    secrets = [{
-      name      = "DATABASE_URL"
-      valueFrom = var.backend.database_url_secret_arn
-    }]
+    secrets = [
+      { name = "DB_USER", valueFrom = "${var.backend.database_secret_arn}:username::" },
+      { name = "DB_PASSWORD", valueFrom = "${var.backend.database_secret_arn}:password::" }
+    ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {

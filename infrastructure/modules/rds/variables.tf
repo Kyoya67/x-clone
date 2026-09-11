@@ -1,3 +1,20 @@
+variable "dbadmin_password" {
+  type      = string
+  sensitive = true
+  ephemeral = true
+  nullable  = false
+}
+
+variable "dbadmin_password_version" {
+  type = number
+}
+
+variable "dbadmin_references_ready" {
+  type        = bool
+  default     = false
+  description = "Safety gate: enable only after migrating every consumer of the RDS-managed secret."
+}
+
 variable "identifier" {
   type        = string
   description = "RDS instance identifier; must be unique within the account and region."

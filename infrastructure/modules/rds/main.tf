@@ -26,8 +26,9 @@ resource "aws_db_instance" "this" {
   username       = "dbadmin"
   port           = 5432
 
-  # パスワード値をTerraformへ渡さず、RDSが生成・Secrets Managerで管理する。
-  manage_master_user_password = true
+  # .envで指定したパスワードを使用する。Stateには保存しない。
+  password_wo         = var.dbadmin_password
+  password_wo_version = var.dbadmin_password_version
 
   allocated_storage     = 20
   max_allocated_storage = 100

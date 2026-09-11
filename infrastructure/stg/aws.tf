@@ -49,17 +49,28 @@ module "iam" {
 
   repository_arn           = module.ecr.backend_arn
   log_group_arn            = module.cloudwatch_logs.arn
-  database_url_secret_arn  = module.secrets_manager.arn
+  database_secret_arn      = module.secrets_manager.app_user_secret_arn
   migration_repository_arn = module.ecr.migration_arn
   migration_log_group_arn  = module.migration_logs.arn
-  admin_secret_arn         = module.rds.master_user_secret_arn
+  admin_secret_arn         = module.secrets_manager.dbadmin_secret_arn
   tags                     = local.common_tags
 }
 
 module "secrets_manager" {
   source = "../modules/secrets_manager"
 
-  name = "backend/database-url"
+  dbadmin = {
+    name = "db/dbadmin"
+  }
+  dbadmin_password         = var.dbadmin_password
+  dbadmin_password_version = var.dbadmin_password_version
+
+  app_user = {
+    name = "db/app_user"
+  }
+  migration_user = {
+    name = "db/migration_user"
+  }
   tags = local.common_tags
 }
 
@@ -88,21 +99,22 @@ module "ecs_task_definition" {
   source = "../modules/ecs_task_definition"
 
   backend = {
-    family                  = "backend"
-    image                   = "${module.ecr.backend_repository_url}:78694d"
-    execution_role_arn      = module.iam.execution_role_arn
-    task_role_arn           = module.iam.task_role_arn
-    database_url_secret_arn = module.secrets_manager.arn
-    log_group_name          = module.cloudwatch_logs.name
+    family              = "backend"
+    image               = "${module.ecr.backend_repository_url}:78694d"
+    execution_role_arn  = module.iam.execution_role_arn
+    task_role_arn       = module.iam.task_role_arn
+    database_host       = module.rds.address
+    database_secret_arn = module.secrets_manager.app_user_secret_arn
+    log_group_name      = module.cloudwatch_logs.name
   }
 
   migration = {
     family             = "backend-migration"
-    image              = "${module.ecr.migration_repository_url}:${var.migration_image_tag}"
+    image              = "${module.ecr.migration_repository_url}:78694d"
     execution_role_arn = module.iam.migration_execution_role_arn
     task_role_arn      = module.iam.migration_task_role_arn
     database_host      = module.rds.address
-    admin_secret_arn   = module.rds.master_user_secret_arn
+    admin_secret_arn   = module.secrets_manager.dbadmin_secret_arn
     log_group_name     = module.migration_logs.name
   }
 
@@ -112,6 +124,14 @@ module "ecs_task_definition" {
 
 module "rds" {
   source = "../modules/rds"
+
+  # 新Secretへ保存した後にRDSのパスワードを変更する。
+  depends_on = [module.secrets_manager]
+
+  dbadmin_password         = var.dbadmin_password
+  dbadmin_password_version = var.dbadmin_password_version
+  # 参照先の切り替え（次の作業）が終わるまでapplyを禁止する。
+  dbadmin_references_ready = false
 
   identifier        = "app-db"
   engine_version    = "16.15"
