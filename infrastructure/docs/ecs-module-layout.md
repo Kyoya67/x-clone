@@ -9,11 +9,13 @@ infrastructure/
 │   └── moved.tf               # 旧アドレスからの移動定義
 └── modules/
     ├── ecr/
-    │   └── main.tf            # backend・migrationをecr_unitで作成
+    │   └── main.tf            # api・db-migratorを作成
     ├── ecr_unit/
     │   └── main.tf            # リポジトリ1個とライフサイクル
     ├── ecs/
-    │   └── main.tf            # ECSクラスター（サービスは未実装）
+    │   └── main.tf            # ECSクラスター
+    ├── ecs_service/
+    │   └── main.tf            # APIを通常1タスク維持
     └── ecs_task_definition/
         ├── main.tf            # バックエンド・マイグレーションの2リソース
         └── variables.tf       # backend・migrationのobject型変数
@@ -23,4 +25,6 @@ infrastructure/
 
 タスク定義はmain.tfに集約する。ポート公開・Secret・起動コマンドが異なるため、aws_ecs_task_definitionは2つに分ける。入力はbackendとmigrationのobject型でまとめ、region・tagsだけを共通で渡す。リソースのアドレスと設定値はこの整理では変更しない。
 
-AWS上のリソース名・イメージ・スペック・権限は変更しない。Terraformのアドレス変更にはmovedブロックを用意し、既存ECR等を削除・再作成しない。移動は次のapplyでStateに反映される。未作成のリソースについては通常どおり作成される。
+ECR名はapi・db-migratorを使用する。旧backend・backend-migrationは削除済み。イメージは自動では移らないため、新リポジトリへのpush後にタスクを起動する。
+
+ECSクラスター名はx-clone、タスクファミリー名はapi・db-migratorとする。環境は別AWSアカウントとEnvタグで区別する。APIのコンテナ名もapiに統一する。マイグレーションのコンテナ名はmigration、ロググループ・SG・IAMロールの名前は既存のままとする。

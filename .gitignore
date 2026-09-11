@@ -11,6 +11,9 @@ backend/.env.*
 !backend/.env.example
 
 # Infrastructure / Terraform
+infrastructure/**/.env
+infrastructure/**/.env.*
+!infrastructure/**/.env.example
 infrastructure/**/.terraform/*
 infrastructure/**/*.tfstate
 infrastructure/**/*.tfstate.*

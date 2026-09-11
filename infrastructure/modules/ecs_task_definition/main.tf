@@ -14,12 +14,20 @@ resource "aws_ecs_task_definition" "api" {
   }
 
   container_definitions = jsonencode([{
-    name                   = "backend"
+    name                   = "api"
     image                  = var.backend.image
     essential              = true
     user                   = "65532:65532"
     readonlyRootFilesystem = true
     portMappings           = [{ containerPort = 8080, protocol = "tcp" }]
+    # scratchにはシェル・curlがないため、Go製コマンドを直接実行する。
+    healthCheck = {
+      command     = ["CMD", "/app/healthcheck"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 30
+    }
     environment = [
       { name = "PORT", value = "8080" },
       { name = "DB_HOST", value = var.backend.database_host },

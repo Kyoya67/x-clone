@@ -14,7 +14,7 @@ RDS側のサーバー証明書はAWSが用意する。バックエンド側に�
 
 外部HTTPS APIは利用しないため、実行用イメージには一般的なCA一覧をコピーせず、[AWS公式の東京リージョン用RDS CAバンドル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html)をビルド時に取得し、`/app/certs/rds-ca-bundle.pem`へ配置する。
 
-配置だけでは証明書検証は有効にならない。RDSへ直接接続する際は、`DATABASE_SSL_MODE=verify-full`と、`DATABASE_URL`のクエリパラメータ`sslrootcert=/app/certs/rds-ca-bundle.pem`を設定する。ローカルDBの`disable`設定は変更しない。RDSへの実接続は未検証。
+配置だけでは証明書検証は有効にならない。ECSではDB_HOST・DB_PORTと、Secretから注入するDB_USER・DB_PASSWORDを使い、Go側がverify-fullと/app/certs/rds-ca-bundle.pemを設定する。ローカル開発のDATABASE_URL・DATABASE_SSL_MODEは引き続き利用できる。
 
 CAバンドルの更新時は取得ステップのキャッシュを使わず再ビルドし、再デプロイする（例：`docker buildx build --no-cache --platform linux/amd64 --load -t backend:local backend`）。
 
@@ -123,8 +123,10 @@ make -C backend migration-ecr-push
 
 | コマンド | Dockerfileのステージ | ECRリポジトリ |
 | --- | --- | --- |
-| api-ecr-push | app | backend |
-| migration-ecr-push | migration | backend-migration |
+| api-ecr-push | app | api |
+| migration-ecr-push | migration | db-migrator |
+
+ECRリポジトリはapi・db-migratorを使用する。両イメージをpushし、タスク定義のタグを合わせてから実行する。旧backend・backend-migrationは削除済み。
 
 共通処理は以下を順番に行い、どこかで失敗した場合は後続処理を停止する。
 

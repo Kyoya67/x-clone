@@ -26,7 +26,7 @@ func TestConnectionURLEscapesPassword(t *testing.T) {
 
 func TestApplicationPasswordReusesExistingValue(t *testing.T) {
 	existing := dbadmin.ConnectionURL("db.example", 5432, "app_user", "saved-password", "/app/certs/rds-ca-bundle.pem")
-	got, err := applicationPassword(existing, "db.example", 5432)
+	got, err := rolePassword(existing, "db.example", 5432, "app_user")
 	if err != nil || got != "saved-password" {
 		t.Fatal("existing password was not preserved")
 	}
@@ -34,18 +34,18 @@ func TestApplicationPasswordReusesExistingValue(t *testing.T) {
 
 func TestApplicationPasswordRejectsDifferentTarget(t *testing.T) {
 	existing := dbadmin.ConnectionURL("other.example", 5432, "app_user", "secret", "/app/certs/rds-ca-bundle.pem")
-	_, err := applicationPassword(existing, "db.example", 5432)
+	_, err := rolePassword(existing, "db.example", 5432, "app_user")
 	if err == nil || strings.Contains(err.Error(), "secret") && strings.Contains(err.Error(), existing) {
 		t.Fatal("expected safe rejection")
 	}
 }
 
 func TestApplicationPasswordGeneratesRandomValue(t *testing.T) {
-	a, err := applicationPassword("", "db.example", 5432)
+	a, err := rolePassword("", "db.example", 5432, "app_user")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := applicationPassword("", "db.example", 5432)
+	b, err := rolePassword("", "db.example", 5432, "app_user")
 	if err != nil || len(a) != 64 || a == b {
 		t.Fatal("invalid random password")
 	}

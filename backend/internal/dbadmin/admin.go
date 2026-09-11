@@ -1,7 +1,6 @@
 package dbadmin
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -13,20 +12,32 @@ import (
 	"strconv"
 )
 
-// AWS passes secret values via stdin, never process arguments or temporary files.
-func AWS(ctx context.Context, input any, output any, args ...string) error {
+// AWSはJSONを権限0600の一時ファイルで渡す。秘密値を引数・ログに出さない。
+func AWS(ctx context.Context, input any, output any, args ...string) (resultErr error) {
 	args = append(args, "--output", "json", "--no-cli-pager")
-	var stdin []byte
 	if input != nil {
-		var err error
-		stdin, err = json.Marshal(input)
+		payload, err := json.Marshal(input)
 		if err != nil {
 			return errors.New("cannot encode AWS request")
 		}
-		args = append(args, "--cli-input-json", "file:///dev/stdin")
+		// CLIが複数回読んでも同じ内容を取得できるよう、標準入力は使用しない。
+		file, err := os.CreateTemp("", "x-clone-aws-request-*.json")
+		if err != nil {
+			return errors.New("cannot create private AWS request file")
+		}
+		defer func() {
+			if err := os.Remove(file.Name()); err != nil {
+				resultErr = errors.New("cannot remove private AWS request file; check temporary directory")
+			}
+		}()
+		_, writeErr := file.Write(payload)
+		closeErr := file.Close()
+		if writeErr != nil || closeErr != nil {
+			return errors.New("cannot write private AWS request file")
+		}
+		args = append(args, "--cli-input-json", "file://"+file.Name())
 	}
 	cmd := exec.CommandContext(ctx, "aws", args...)
-	cmd.Stdin = bytes.NewReader(stdin)
 	data, err := cmd.Output()
 	if err != nil {
 		return errors.New("AWS request failed; check operator credentials, region and permissions")
@@ -45,26 +56,28 @@ func ConnectionURL(host string, port int, user, password, ca string) string {
 }
 
 type Metadata struct {
-	Host   string
-	Port   int
-	Secret string
+	Host string
+	Port int
 }
 
 // OpenAdministrator reads credentials into memory and connects as dbadmin.
-func OpenAdministrator(ctx context.Context, instance, caFile, tunnel string) (*sql.DB, Metadata, error) {
+func OpenAdministrator(ctx context.Context, instance, secretID, caFile, tunnel string) (*sql.DB, Metadata, error) {
 	var metadata Metadata
+	if secretID == "" {
+		return nil, metadata, errors.New("administrator secret is required")
+	}
 	if _, err := os.Stat(caFile); err != nil {
 		return nil, metadata, errors.New("cannot read RDS CA file")
 	}
 	if err := AWS(ctx, nil, &metadata, "rds", "describe-db-instances", "--db-instance-identifier", instance,
-		"--query", "DBInstances[0].{Host:Endpoint.Address,Port:Endpoint.Port,Secret:MasterUserSecret.SecretArn}"); err != nil {
+		"--query", "DBInstances[0].{Host:Endpoint.Address,Port:Endpoint.Port}"); err != nil {
 		return nil, metadata, err
 	}
-	if metadata.Host == "" || metadata.Secret == "" || metadata.Port == 0 {
-		return nil, metadata, errors.New("RDS endpoint or managed administrator secret is missing")
+	if metadata.Host == "" || metadata.Port == 0 {
+		return nil, metadata, errors.New("RDS endpoint is missing")
 	}
 	var adminValue struct{ SecretString string }
-	if err := AWS(ctx, nil, &adminValue, "secretsmanager", "get-secret-value", "--secret-id", metadata.Secret); err != nil {
+	if err := AWS(ctx, nil, &adminValue, "secretsmanager", "get-secret-value", "--secret-id", secretID); err != nil {
 		return nil, metadata, err
 	}
 	var admin struct{ Username, Password string }

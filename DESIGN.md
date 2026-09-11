@@ -2,6 +2,10 @@
 
 ## 1. 開発方針
 
+### stgのAPI起動確認
+
+APIはECSサービスで通常1タスク維持する。今回のPRは起動とRDS接続の確認で区切り、ALB・外部公開は後続PRに分ける。ECSのコンテナhealthCheckでHTTP応答を自動確認する。scratchを維持するためcurlの代わりにGo製コマンドを同梱する分、バイナリが1つ増える。DBの継続的な疎通は確認しない。[設定と確認手順](infrastructure/docs/ecs.md)。自動healthチェックの実環境での確認は未実施。
+
 開発の進捗は、GitHub Milestoneで管理する。対象となるIssueを同じMilestoneに紐づけ、Milestoneの進捗率で全体の達成状況を把握する。
 
 ```

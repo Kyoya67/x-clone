@@ -11,8 +11,8 @@ command -v jq >/dev/null || { echo 'jq is required' >&2; exit 1; }
 
 # 2. 対象環境を設定する。環境変数がなければ右側の値を使用する。
 # AWS_PROFILE/AWS_REGIONは実行元から引き継ぐ。CIでは引き受けたIAMロールも利用可能。
-cluster=${ECS_CLUSTER:-app}
-definition=${ECS_MIGRATION_TASK_DEFINITION:-backend-migration}
+cluster=${ECS_CLUSTER:-x-clone}
+definition=${ECS_MIGRATION_TASK_DEFINITION:-db-migrator}
 environment=${DEPLOY_ENV:-stg}
 
 # 3. プロジェクト・環境・用途のタグで、アプリ用privateサブネットを取得する。
@@ -46,7 +46,7 @@ definition=$(aws ecs describe-task-definition --task-definition "$definition" \
   --query 'taskDefinition.taskDefinitionArn' --output text --no-cli-pager)
 
 # マイグレーション以外のタスク定義を誤って起動しないように確認する。
-[[ "$definition" == arn:*:task-definition/backend-migration:* ]] || { echo 'Unexpected migration task definition' >&2; exit 1; }
+[[ "$definition" == arn:*:task-definition/db-migrator:* ]] || { echo 'Unexpected migration task definition' >&2; exit 1; }
 
 # 7. コンテナ内のGoコマンドへ、--action status または --action upを渡す。
 overrides=$(jq -cn --arg action "$action" '{containerOverrides:[{name:"migration",command:["--action",$action]}]}')

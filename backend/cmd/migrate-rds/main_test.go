@@ -14,7 +14,7 @@ import (
 func TestDatabaseURLUsesInjectedCredentialsAndVerifiesRDS(t *testing.T) {
 	t.Setenv("DB_HOST", "db.example")
 	t.Setenv("DB_PORT", "5432")
-	t.Setenv("DB_USER", "dbadmin")
+	t.Setenv("DB_USER", "migration_user")
 	t.Setenv("DB_PASSWORD", "test:@/?password")
 	value, err := databaseURL("/app/certs/rds-ca-bundle.pem")
 	if err != nil {
@@ -25,7 +25,7 @@ func TestDatabaseURLUsesInjectedCredentialsAndVerifiesRDS(t *testing.T) {
 		t.Fatal(err)
 	}
 	password, _ := u.User.Password()
-	if u.Host != "db.example:5432" || password != "test:@/?password" || u.Query().Get("sslmode") != "verify-full" {
+	if u.Host != "db.example:5432" || u.User.Username() != "migration_user" || password != "test:@/?password" || u.Query().Get("sslmode") != "verify-full" {
 		t.Fatal("unexpected database configuration")
 	}
 }
@@ -33,10 +33,30 @@ func TestDatabaseURLUsesInjectedCredentialsAndVerifiesRDS(t *testing.T) {
 func TestDatabaseURLRejectsMissingPassword(t *testing.T) {
 	t.Setenv("DB_HOST", "db.example")
 	t.Setenv("DB_PORT", "5432")
-	t.Setenv("DB_USER", "dbadmin")
+	t.Setenv("DB_USER", "migration_user")
 	t.Setenv("DB_PASSWORD", "")
 	if _, err := databaseURL("/app/certs/rds-ca-bundle.pem"); err == nil {
 		t.Fatal("missing password accepted")
+	}
+}
+
+func TestDatabaseURLRejectsAdministrator(t *testing.T) {
+	t.Setenv("DB_HOST", "db.example")
+	t.Setenv("DB_PORT", "5432")
+	t.Setenv("DB_USER", "dbadmin")
+	t.Setenv("DB_PASSWORD", "test-only-password")
+	if _, err := databaseURL("/app/certs/rds-ca-bundle.pem"); err == nil {
+		t.Fatal("administrator credentials accepted")
+	}
+}
+
+func TestDatabaseURLRejectsApplicationUser(t *testing.T) {
+	t.Setenv("DB_HOST", "db.example")
+	t.Setenv("DB_PORT", "5432")
+	t.Setenv("DB_USER", "app_user")
+	t.Setenv("DB_PASSWORD", "test-only-password")
+	if _, err := databaseURL("/app/certs/rds-ca-bundle.pem"); err == nil {
+		t.Fatal("application credentials accepted")
 	}
 }
 
