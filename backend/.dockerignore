@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+.envrc
+*.pem
+*.key
+coverage*
+*.out
+*.test
+docs/
+README.md
+docker-compose.yml
+Makefile
+seeds/

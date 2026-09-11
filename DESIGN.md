@@ -2,6 +2,10 @@
 
 ## 1. 開発方針
 
+### stgのAPI起動確認
+
+APIはECSサービスで通常1タスク維持する。今回のPRは起動とRDS接続の確認で区切り、ALB・外部公開は後続PRに分ける。ECSのコンテナhealthCheckでHTTP応答を自動確認する。scratchを維持するためcurlの代わりにGo製コマンドを同梱する分、バイナリが1つ増える。DBの継続的な疎通は確認しない。[設定と確認手順](infrastructure/docs/ecs.md)。自動healthチェックの実環境での確認は未実施。
+
 開発の進捗は、GitHub Milestoneで管理する。対象となるIssueを同じMilestoneに紐づけ、Milestoneの進捗率で全体の達成状況を把握する。
 
 ```
@@ -205,3 +209,7 @@ erDiagram
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
 ## 6. 今後の拡張性や運用を見据えた懸念点
+
+### DBユーザーとマイグレーション
+
+管理・マイグレーション・アプリのDBユーザーを分離する方針と、現在の実装との差は[DBユーザーとマイグレーション](backend/docs/db-operation-flow.md)にまとめる。
