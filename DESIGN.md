@@ -205,3 +205,7 @@ erDiagram
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
 ## 6. 今後の拡張性や運用を見据えた懸念点
+
+### RDSの初期マイグレーション
+
+マイグレーションは初回から専用ECS単発タスクで実行する。ローカルのSSM転送方式から変更し、将来のCI/CDでも同じイメージ・実行経路を利用できるようにする。ECR・専用IAM・タスク定義の準備は増えるが、手元のGo環境やSSMセッションに依存しない。既存SQLとgolang-migrate v4.19.1を使用し、RDSへ直接TLS接続する。初期構築はdbadminを使用し、認証情報は専用の実行ロールがSecrets Managerから環境変数へ注入する。通常APIのapp_userと権限を分離し、アプリ起動時には実行しない。タスクの終了コード0を確認してから次へ進む。DBユーザーの初期設定には引き続きSSMを使用する。実AWS適用とCI/CD連携は未実施。手順は[RDSマイグレーション](backend/docs/rds-migrations.md)に記載する。

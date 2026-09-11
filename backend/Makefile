@@ -1,4 +1,4 @@
-.PHONY: migrate-up migrate-down seed ecr-push db-user db-tunnel
+.PHONY: migrate-up migrate-down seed ecr-push db-user db-tunnel migrate-rds-up migrate-rds-status migration-ecr-push
 
 MIGRATE_DATABASE_URL ?= postgres://app:app@postgres:5432/app?sslmode=disable
 
@@ -6,8 +6,17 @@ ECR_PROFILE ?= x-clone-terraform-stg
 ECR_REGION ?= ap-northeast-1
 ECR_REGISTRY ?= 089244387218.dkr.ecr.ap-northeast-1.amazonaws.com
 ECR_REPOSITORY ?= backend
+DOCKER_TARGET ?= app
 
 DB_TUNNEL ?=
+
+# ECS単発タスクを起動し、終了コードまで確認する。SSM転送は不要。
+migrate-rds-up migrate-rds-status:
+	bash scripts/ecs-migrate.sh "$(patsubst migrate-rds-%,%,$@)"
+
+# マイグレーション専用イメージ。通常API用リポジトリとは分離する。
+migration-ecr-push:
+	$(MAKE) ecr-push ECR_REPOSITORY=backend-migration DOCKER_TARGET=migration
 
 db-tunnel:
 	bash scripts/db-tunnel.sh
@@ -49,5 +58,5 @@ ecr-push:
 	image_uri="$(ECR_REGISTRY)/$(ECR_REPOSITORY):$$image_tag"; \
 	aws ecr get-login-password --profile "$(ECR_PROFILE)" --region "$(ECR_REGION)" \
 		| docker login --username AWS --password-stdin "$(ECR_REGISTRY)"; \
-	docker buildx build --platform linux/amd64 --load -t "$$image_uri" .; \
+	docker buildx build --target "$(DOCKER_TARGET)" --platform linux/amd64 --load -t "$$image_uri" .; \
 	docker push "$$image_uri"

@@ -9,11 +9,12 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
 )
 
 func TestConnectionURLEscapesPassword(t *testing.T) {
 	password := "a:@/?#'\\secret"
-	u, err := url.Parse(connectionURL("db.example", 5432, "app_user", password, "/tmp/ca.pem"))
+	u, err := url.Parse(dbadmin.ConnectionURL("db.example", 5432, "app_user", password, "/tmp/ca.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func TestConnectionURLEscapesPassword(t *testing.T) {
 }
 
 func TestApplicationPasswordReusesExistingValue(t *testing.T) {
-	existing := connectionURL("db.example", 5432, "app_user", "saved-password", "/app/certs/rds-ca-bundle.pem")
+	existing := dbadmin.ConnectionURL("db.example", 5432, "app_user", "saved-password", "/app/certs/rds-ca-bundle.pem")
 	got, err := applicationPassword(existing, "db.example", 5432)
 	if err != nil || got != "saved-password" {
 		t.Fatal("existing password was not preserved")
@@ -32,7 +33,7 @@ func TestApplicationPasswordReusesExistingValue(t *testing.T) {
 }
 
 func TestApplicationPasswordRejectsDifferentTarget(t *testing.T) {
-	existing := connectionURL("other.example", 5432, "app_user", "secret", "/app/certs/rds-ca-bundle.pem")
+	existing := dbadmin.ConnectionURL("other.example", 5432, "app_user", "secret", "/app/certs/rds-ca-bundle.pem")
 	_, err := applicationPassword(existing, "db.example", 5432)
 	if err == nil || strings.Contains(err.Error(), "secret") && strings.Contains(err.Error(), existing) {
 		t.Fatal("expected safe rejection")

@@ -2,22 +2,21 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
 )
 
 func main() {
@@ -40,63 +39,12 @@ func main() {
 	fmt.Println("app_user configured; application URL stored in Secrets Manager")
 }
 
-// aws passes secret values via stdin, never process arguments or temporary files.
-func aws(ctx context.Context, input any, output any, args ...string) error {
-	args = append(args, "--output", "json", "--no-cli-pager")
-	var stdin []byte
-	if input != nil {
-		var err error
-		stdin, err = json.Marshal(input)
-		if err != nil {
-			return errors.New("cannot encode AWS request")
-		}
-		args = append(args, "--cli-input-json", "file:///dev/stdin")
-	}
-	cmd := exec.CommandContext(ctx, "aws", args...)
-	cmd.Stdin = bytes.NewReader(stdin)
-	data, err := cmd.Output()
-	if err != nil {
-		return errors.New("AWS request failed; check operator credentials, region and permissions")
-	}
-	if output != nil && json.Unmarshal(data, output) != nil {
-		return errors.New("invalid AWS response")
-	}
-	return nil
-}
-
 func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
-	if _, err := os.Stat(caFile); err != nil {
-		return errors.New("cannot read RDS CA file")
-	}
-	var metadata struct {
-		Host   string
-		Port   int
-		Secret string
-	}
-	if err := aws(ctx, nil, &metadata, "rds", "describe-db-instances", "--db-instance-identifier", instance,
-		"--query", "DBInstances[0].{Host:Endpoint.Address,Port:Endpoint.Port,Secret:MasterUserSecret.SecretArn}"); err != nil {
-		return err
-	}
-	if metadata.Host == "" || metadata.Secret == "" || metadata.Port == 0 {
-		return errors.New("RDS endpoint or managed administrator secret is missing")
-	}
-	var adminValue struct{ SecretString string }
-	if err := aws(ctx, nil, &adminValue, "secretsmanager", "get-secret-value", "--secret-id", metadata.Secret); err != nil {
-		return err
-	}
-	var admin struct{ Username, Password string }
-	if json.Unmarshal([]byte(adminValue.SecretString), &admin) != nil || admin.Username != "dbadmin" || admin.Password == "" {
-		return errors.New("invalid administrator secret")
-	}
-	adminURL := connectionURL(metadata.Host, metadata.Port, admin.Username, admin.Password, caFile)
-	db, err := openDatabase(adminURL, tunnel)
+	db, metadata, err := dbadmin.OpenAdministrator(ctx, instance, caFile, tunnel)
 	if err != nil {
-		return errors.New("cannot initialize database connection")
+		return err
 	}
 	defer db.Close()
-	if err := db.PingContext(ctx); err != nil {
-		return errors.New("database connection failed; check VPC connectivity, CA and administrator credentials")
-	}
 	// Serialize cooperating operators, including secret retrieval/publication.
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -107,7 +55,7 @@ func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 		return errors.New("cannot acquire setup lock")
 	}
 	var description struct{ VersionIdsToStages map[string][]string }
-	if err := aws(ctx, nil, &description, "secretsmanager", "describe-secret", "--secret-id", secretID); err != nil {
+	if err := dbadmin.AWS(ctx, nil, &description, "secretsmanager", "describe-secret", "--secret-id", secretID); err != nil {
 		return err
 	}
 	existingURL := ""
@@ -115,7 +63,7 @@ func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 		for _, stage := range stages {
 			if stage == "AWSCURRENT" {
 				var value struct{ SecretString string }
-				if err := aws(ctx, nil, &value, "secretsmanager", "get-secret-value", "--secret-id", secretID); err != nil {
+				if err := dbadmin.AWS(ctx, nil, &value, "secretsmanager", "get-secret-value", "--secret-id", secretID); err != nil {
 					return err
 				}
 				existingURL = value.SecretString
@@ -135,7 +83,7 @@ func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 		return errors.New("cannot inspect application role")
 	}
 	if roleExists && existingURL != "" {
-		appDB, err := openDatabase(connectionURL(metadata.Host, metadata.Port, "app_user", password, caFile), tunnel)
+		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(metadata.Host, metadata.Port, "app_user", password, caFile), tunnel)
 		if err != nil {
 			return errors.New("cannot initialize application connection")
 		}
@@ -147,10 +95,10 @@ func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 	if err := configureRole(ctx, tx, password, existingURL != ""); err != nil {
 		return err
 	}
-	appURL := connectionURL(metadata.Host, metadata.Port, "app_user", password, "/app/certs/rds-ca-bundle.pem")
+	appURL := dbadmin.ConnectionURL(metadata.Host, metadata.Port, "app_user", password, "/app/certs/rds-ca-bundle.pem")
 	if existingURL == "" {
 		// Publish before commit. If commit fails, retry reuses the saved password.
-		if err := aws(ctx, map[string]string{"SecretId": secretID, "SecretString": appURL}, nil,
+		if err := dbadmin.AWS(ctx, map[string]string{"SecretId": secretID, "SecretString": appURL}, nil,
 			"secretsmanager", "put-secret-value"); err != nil {
 			return err
 		}
@@ -159,13 +107,6 @@ func run(ctx context.Context, instance, secretID, caFile, tunnel string) error {
 		return errors.New("database commit failed; rerun to reconcile with saved secret")
 	}
 	return nil
-}
-
-func connectionURL(host string, port int, user, password, ca string) string {
-	u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/app", User: url.UserPassword(user, password)}
-	q := url.Values{"sslmode": {"verify-full"}, "sslrootcert": {ca}, "connect_timeout": {"10"}}
-	u.RawQuery = q.Encode()
-	return u.String()
 }
 
 func applicationPassword(existing, host string, port int) (string, error) {

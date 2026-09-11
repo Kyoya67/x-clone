@@ -1,5 +1,7 @@
 # ローカルからRDSへのSSMポートフォワーディング
 
+マイグレーションとの使い分けとファイルの呼び出し順は[DB初期設定の流れ](../../backend/docs/db-operation-flow.md)を参照。
+
 既存NATインスタンスをSSMの転送先として兼用し、privateなRDSへ接続する。DB管理接続ではSSH鍵・ローカルIPの許可・22番への接続を使用しない。ブラウザ版EC2 Instance Connect用の既存SSHルールだけは維持する。
 
 `````text
@@ -68,6 +70,8 @@ make -C backend db-tunnel
 EC2再作成時はNAT_INSTANCE_IDを更新する。DB_LOCAL_PORTで待受ポートを変更できる（既定15432）。転送開始後はターミナルを開いたままにし、終了時はCtrl+C。転送セッションが開いただけではDB認証成功とは限らない。
 
 ## 4. ターミナルBでDBユーザーを作成する
+
+初期構築では、先に[ECS単発タスクでのRDSマイグレーション](../../backend/docs/rds-migrations.md)を実行してテーブルを作成する。マイグレーションにはSSMは不要。以下のDBユーザー設定には、このSSM転送を使用する。
 
 この操作はDBユーザー・権限とSecret値を変更する。
 

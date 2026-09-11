@@ -1,4 +1,4 @@
-package main
+package dbadmin
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-func openDatabase(databaseURL, tunnel string) (*sql.DB, error) {
+func OpenDatabase(databaseURL, tunnel string) (*sql.DB, error) {
 	config, err := pgx.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, errors.New("invalid database configuration")
