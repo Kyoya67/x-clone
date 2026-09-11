@@ -1,4 +1,4 @@
-output "backend_repository_url" { value = module.backend.repository_url }
-output "backend_arn" { value = module.backend.arn }
-output "migration_repository_url" { value = module.migration.repository_url }
-output "migration_arn" { value = module.migration.arn }
+output "api_repository_url" { value = module.api.repository_url }
+output "api_arn" { value = module.api.arn }
+output "db_migrator_repository_url" { value = module.db_migrator.repository_url }
+output "db_migrator_arn" { value = module.db_migrator.arn }

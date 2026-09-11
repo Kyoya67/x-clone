@@ -15,18 +15,6 @@ moved {
 }
 
 moved {
-  from = module.ecr.aws_ecr_repository.this
-  to   = module.ecr.module.backend.aws_ecr_repository.this
-}
-moved {
-  from = module.ecr.aws_ecr_lifecycle_policy.this
-  to   = module.ecr.module.backend.aws_ecr_lifecycle_policy.this
-}
-moved {
-  from = module.migration_ecr
-  to   = module.ecr.module.migration
-}
-moved {
   from = module.ecs_cluster
   to   = module.ecs
 }

@@ -1,12 +1,13 @@
-module "backend" {
+module "api" {
   source      = "../ecr_unit"
-  name        = "backend"
+  name        = "api"
   image_count = var.image_count
   tags        = var.tags
 }
-module "migration" {
+
+module "db_migrator" {
   source      = "../ecr_unit"
-  name        = "backend-migration"
+  name        = "db-migrator"
   image_count = var.image_count
   tags        = var.tags
 }

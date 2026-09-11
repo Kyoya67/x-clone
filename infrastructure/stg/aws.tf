@@ -47,10 +47,10 @@ module "security_group" {
 module "iam" {
   source = "../modules/iam"
 
-  repository_arn           = module.ecr.backend_arn
+  repository_arn           = module.ecr.api_arn
   log_group_arn            = module.cloudwatch_logs.arn
   database_secret_arn      = module.secrets_manager.app_user_secret_arn
-  migration_repository_arn = module.ecr.migration_arn
+  migration_repository_arn = module.ecr.db_migrator_arn
   migration_log_group_arn  = module.migration_logs.arn
   migration_secret_arn     = module.secrets_manager.migration_user_secret_arn
   tags                     = local.common_tags
@@ -91,7 +91,7 @@ module "ecr" {
 
 module "ecs" {
   source = "../modules/ecs"
-  name   = "app"
+  name   = "x-clone"
   tags   = local.common_tags
 }
 
@@ -99,8 +99,8 @@ module "ecs_task_definition" {
   source = "../modules/ecs_task_definition"
 
   backend = {
-    family              = "backend"
-    image               = "${module.ecr.backend_repository_url}:60c38e"
+    family              = "api"
+    image               = "${module.ecr.api_repository_url}:60c38e"
     execution_role_arn  = module.iam.execution_role_arn
     task_role_arn       = module.iam.task_role_arn
     database_host       = module.rds.address
@@ -109,8 +109,8 @@ module "ecs_task_definition" {
   }
 
   migration = {
-    family               = "backend-migration"
-    image                = "${module.ecr.migration_repository_url}:60c38e"
+    family               = "db-migrator"
+    image                = "${module.ecr.db_migrator_repository_url}:60c38e"
     execution_role_arn   = module.iam.migration_execution_role_arn
     task_role_arn        = module.iam.migration_task_role_arn
     database_host        = module.rds.address
