@@ -1,5 +1,10 @@
 # モジュール構成変更のみ。既存リソースを再作成せずState上のアドレスを引き継ぐ。
 moved {
+  from = module.ecs_task_definition.aws_ecs_task_definition.this
+  to   = module.ecs_task_definition.aws_ecs_task_definition.api
+}
+
+moved {
   from = module.ecr.aws_ecr_repository.this
   to   = module.ecr.module.backend.aws_ecr_repository.this
 }
