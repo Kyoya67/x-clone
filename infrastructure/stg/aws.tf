@@ -100,7 +100,7 @@ module "ecs_task_definition" {
 
   backend = {
     family              = "backend"
-    image               = "${module.ecr.backend_repository_url}:78694d"
+    image               = "${module.ecr.backend_repository_url}:60c38e"
     execution_role_arn  = module.iam.execution_role_arn
     task_role_arn       = module.iam.task_role_arn
     database_host       = module.rds.address
@@ -110,7 +110,7 @@ module "ecs_task_definition" {
 
   migration = {
     family               = "backend-migration"
-    image                = "${module.ecr.migration_repository_url}:78694d"
+    image                = "${module.ecr.migration_repository_url}:60c38e"
     execution_role_arn   = module.iam.migration_execution_role_arn
     task_role_arn        = module.iam.migration_task_role_arn
     database_host        = module.rds.address
