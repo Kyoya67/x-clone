@@ -2,7 +2,7 @@
 
 ## 構成と選択理由
 
-`modules/rds`を`stg/aws.tf`から呼び出す。現時点ではTerraformの実装のみで、apply・DB接続・マイグレーションは未実施。
+`modules/rds`を`stg/aws.tf`から呼び出す。ユーザーの動作確認では、RDSへの接続とマイグレーションの適用（version=4、dirty=false）が完了している。
 
 | 項目 | stgの設定 | 理由・注意点 |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ RDSとSecrets Managerはapply後に料金が発生する。バックアップ時
 ## 接続の関係
 
 `````text
-ECS・マイグレーションタスク（今後作成、backend-sgを付与）
+ECSタスク（API用・マイグレーション用のSGをそれぞれ付与）
   └─ TCP 5432 / TLS → RDS（db-sg、DB専用privateサブネット）
 
 backend-sgのTCP 443送信
@@ -44,11 +44,9 @@ AWS_PROFILE=x-clone-terraform-stg terraform -chdir=infrastructure/stg apply
 
 ## ECS起動前に残っている作業
 
-アプリ用ユーザーの作成・権限付与・接続URL登録は[db-user管理コマンド](../../backend/docs/db-user.md)で行う。[SSMポート転送](db-tunnel.md)用のコードとIAM・SG設定を追加済み。実RDSへのユーザー作成は未実施。
+DBユーザーとマイグレーションの方針・現在の実装は[こちら](../../backend/docs/db-operation-flow.md)を参照。
 
-- VPC内の一時タスクなどから接続し、アプリ用DBユーザーと権限を設定する。管理者dbadminを通常のアプリ実行には使用しない。
 - アプリ用認証情報のSecrets Manager管理・ローテーション方針とECSへの注入を実装する。ECSが起動時に注入する値は、シークレット更新だけでは既存タスクに反映されないため、更新時の再起動も設計する。
-- マイグレーションを実行する。RDSの作成だけではusers・posts・followsテーブルは作られない。
 - `DATABASE_SSL_MODE=verify-full`と、RDSのホスト名・`sslrootcert=/app/certs/rds-ca-bundle.pem`を含む接続URLで動作確認する。[コンテナの証明書設定](../../backend/docs/container.md)を参照。
 - prdではMulti-AZ、インスタンスサイズ、監視・バックアップ要件を再検討する。同一アカウント・リージョンで併設する場合は識別子app-dbを環境ごとに区別する。
 
