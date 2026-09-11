@@ -22,7 +22,7 @@ resource "aws_iam_policy" "migration_execution" {
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "${var.migration_log_group_arn}:*"
       },
-      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.admin_secret_arn }
+      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.migration_secret_arn }
     ]
   })
 }
@@ -32,7 +32,7 @@ resource "aws_iam_role_policy_attachment" "migration_execution" {
   policy_arn = aws_iam_policy.migration_execution.arn
 }
 
-# コンテナ本体はAWS APIを呼ばない。DBの権限はdbadminのSQL権限。
+# コンテナ本体はAWS APIを呼ばない。DBの権限はmigration_userのSQL権限。
 resource "aws_iam_role" "migration_task" {
   name               = "migration-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json

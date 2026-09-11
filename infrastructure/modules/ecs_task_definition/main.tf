@@ -67,8 +67,8 @@ resource "aws_ecs_task_definition" "migration" {
       { name = "DB_PORT", value = "5432" }
     ]
     secrets = [
-      { name = "DB_USER", valueFrom = "${var.migration.admin_secret_arn}:username::" },
-      { name = "DB_PASSWORD", valueFrom = "${var.migration.admin_secret_arn}:password::" }
+      { name = "DB_USER", valueFrom = "${var.migration.migration_secret_arn}:username::" },
+      { name = "DB_PASSWORD", valueFrom = "${var.migration.migration_secret_arn}:password::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
