@@ -18,14 +18,9 @@ variable "public_subnet_ids" {
   description = "Public subnets associated with the public route table."
 }
 
-variable "app_private_subnet_ids" {
+variable "private_subnet_ids" {
   type        = list(string)
-  description = "Application private subnets associated with the NAT route table."
-}
-
-variable "db_private_subnet_ids" {
-  type        = list(string)
-  description = "Database private subnets associated with the isolated route table."
+  description = "Shared private subnets associated with the NAT route table."
 }
 
 variable "tags" {

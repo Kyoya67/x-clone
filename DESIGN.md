@@ -2,6 +2,10 @@
 
 ## 1. 開発方針
 
+### stgのサブネット構成
+
+把握しやすさを優先し、public-1a・1cとprivate-1a・1cの4サブネットに統一する。ECSとRDSはprivateを共有し、SG・DB権限は分離したままとする。DB専用の経路分離はなくなり、privateはNATへの経路を共有する。RDSの移動を避けるため旧DB用サブネットを維持し、ECSの配置先を変更する。[移行手順](infrastructure/docs/subnets.md)。applyと移行後の動作確認は未実施。
+
 ### stgのAPI起動確認
 
 APIはECSサービスで通常1タスク維持する。今回のPRは起動とRDS接続の確認で区切り、ALB・外部公開は後続PRに分ける。ECSのコンテナhealthCheckでHTTP応答を自動確認する。scratchを維持するためcurlの代わりにGo製コマンドを同梱する分、バイナリが1つ増える。DBの継続的な疎通は確認しない。[設定と確認手順](infrastructure/docs/ecs.md)。自動healthチェックの実環境での確認は未実施。

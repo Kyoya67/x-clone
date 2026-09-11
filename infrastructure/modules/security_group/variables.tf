@@ -3,7 +3,7 @@ variable "vpc_id" {
   description = "VPC in which the security group is created."
 }
 
-variable "app_private_cidr_blocks" {
+variable "private_cidr_blocks" {
   type        = list(string)
   description = "Private application subnet CIDR blocks allowed to use the NAT instance."
 }

@@ -77,7 +77,7 @@ resource "aws_security_group" "nat" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "nat" {
-  for_each = toset(var.app_private_cidr_blocks)
+  for_each = toset(var.private_cidr_blocks)
 
   security_group_id = aws_security_group.nat.id
   description       = "Traffic initiated by private application workloads"

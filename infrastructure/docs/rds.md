@@ -9,7 +9,7 @@
 | エンジン | PostgreSQL 16.15 | ローカルのPostgreSQL 16とメジャーを合わせる |
 | インスタンス | db.t4g.micro / Single-AZ | stgのコストを抑える。AZ障害時の自動フェイルオーバーはない |
 | ストレージ | 暗号化gp3、20 GiB、最大100 GiBへ自動拡張 | データ保護と容量不足への備え。拡張分は課金され、縮小できない |
-| ネットワーク | 既存のDB専用privateサブネット2つ、非公開 | DBサブネットグループは2 AZに跨がるが、Single-AZなのでDBが2台作られるわけではない |
+| ネットワーク | ECSと共有するprivateサブネット2つ、非公開 | DBサブネットグループは2 AZに跨がるが、Single-AZなのでDBが2台作られるわけではない |
 | SG | backend-sgと管理用NATのSGから5432を許可 | NAT経由はSSMポート転送用。インターネットからの直接接続は許可しない |
 | TLS | rds.force_ssl=1 / rds-ca-rsa2048-g1 | 平文接続をDB側で拒否する。クライアント側のverify-fullも必要 |
 | 認証 | dbadmin、RDS管理のSecrets Managerシークレット | パスワードをコードやTerraform Stateに渡さない |
@@ -21,7 +21,7 @@ RDSとSecrets Managerはapply後に料金が発生する。バックアップ時
 
 `````text
 ECSタスク（API用・マイグレーション用のSGをそれぞれ付与）
-  └─ TCP 5432 / TLS → RDS（db-sg、DB専用privateサブネット）
+  └─ TCP 5432 / TLS → RDS（db-sg、ECSと共有するprivateサブネット）
 
 backend-sgのTCP 443送信
   └─ NAT → ECR・CloudWatch Logs・Secrets Manager

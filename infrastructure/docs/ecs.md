@@ -48,7 +48,7 @@ curl --fail --show-error --max-time 10 http://<タスクのプライベートIP>
 
 200と`{"status":"ok"}`を確認する。Goは起動時のdb.Ping成功後にHTTPサーバーを開始するため、起動時のRDS接続成功も確認できる。ただしhealth自身はDBへ問い合わせず、その時点の接続や読み書き権限は保証しない。実環境でのサービス起動・HTTP確認は未実施。
 
-サービスはapp-privateサブネット・backend-sgを使用し、パブリックIPを付けない。8080の受信はNATホストのSGからのみ許可し、ECR等への通信はNATを経由する。
+サービスはprivateサブネット・backend-sgを使用し、パブリックIPを付けない。8080の受信はNATホストのSGからのみ許可し、ECR等への通信はNATを経由する。
 
 scratchにはシェルやcurlがないため、Go製の/app/healthcheckをCMDで直接実行する。コンテナ内の127.0.0.1:8080/healthが200なら終了コード0、それ以外・通信失敗は1を返す。30秒間隔、タイムアウト5秒（HTTP側3秒）、連続失敗3回、起動猶予30秒。UNHEALTHYになったタスクはECSサービスが置き換える。[AWSのコンテナヘルスチェック](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_HealthCheck.html)
 

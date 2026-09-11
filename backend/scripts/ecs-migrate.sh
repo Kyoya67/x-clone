@@ -17,12 +17,12 @@ environment=${DEPLOY_ENV:-stg}
 
 # 3. プロジェクト・環境・用途のタグで、アプリ用privateサブネットを取得する。
 subnets=$(aws ec2 describe-subnets \
-  --filters 'Name=tag:Project,Values=x-clone' "Name=tag:Env,Values=$environment" 'Name=tag:Tier,Values=app-private' \
+  --filters 'Name=tag:Project,Values=x-clone' "Name=tag:Env,Values=$environment" 'Name=tag:Tier,Values=private' \
   --output json --no-cli-pager)
 
 # サブネットがない場合や、複数のVPCにまたがる場合は誤接続を避けるため停止する。
 jq -e '(.Subnets | length) > 0 and ([.Subnets[].VpcId] | unique | length) == 1' <<< "$subnets" >/dev/null || {
-  echo 'Expected app-private subnets in exactly one project VPC' >&2; exit 1;
+  echo 'Expected private subnets in exactly one project VPC' >&2; exit 1;
 }
 
 # 4. 同じVPCにあるマイグレーション専用SGを取得する。

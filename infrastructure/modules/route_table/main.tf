@@ -18,7 +18,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table" "app_private" {
+resource "aws_route_table" "private" {
   vpc_id = var.vpc_id
 
   route {
@@ -27,28 +27,13 @@ resource "aws_route_table" "app_private" {
   }
 
   tags = merge(var.tags, {
-    Name = "app-private-rt"
+    Name = "private-rt"
   })
 }
 
-resource "aws_route_table_association" "app_private" {
-  count = length(var.app_private_subnet_ids)
+resource "aws_route_table_association" "private" {
+  count = length(var.private_subnet_ids)
 
-  subnet_id      = var.app_private_subnet_ids[count.index]
-  route_table_id = aws_route_table.app_private.id
-}
-
-resource "aws_route_table" "db_private" {
-  vpc_id = var.vpc_id
-
-  tags = merge(var.tags, {
-    Name = "db-private-rt"
-  })
-}
-
-resource "aws_route_table_association" "db_private" {
-  count = length(var.db_private_subnet_ids)
-
-  subnet_id      = var.db_private_subnet_ids[count.index]
-  route_table_id = aws_route_table.db_private.id
+  subnet_id      = var.private_subnet_ids[count.index]
+  route_table_id = aws_route_table.private.id
 }
