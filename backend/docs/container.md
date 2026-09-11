@@ -112,16 +112,27 @@ APIは起動時にDB接続を確認するため、DBへ接続できなければ�
 変更をコミットした後、リポジトリルートで実行する。AWS CLI・Docker・makeと、`x-clone-terraform-stg`プロフィールの設定が必要。
 
 `````bash
-make -C backend ecr-push
+# API用イメージ
+make -C backend api-ecr-push
+
+# マイグレーション用イメージ
+make -C backend migration-ecr-push
 `````
 
-`backend`ディレクトリ内なら`make ecr-push`で実行できる。[Makefile](../Makefile)が以下を順番に行い、どこかで失敗した場合は後続処理を停止する。
+`backend`ディレクトリ内なら`-C backend`は不要。[Makefile](../Makefile)では入口を分け、共通の`_ecr-push`処理へリポジトリとDockerfileのビルド対象を渡す。以前の`ecr-push`は`api-ecr-push`へ置き換えた。
+
+| コマンド | Dockerfileのステージ | ECRリポジトリ |
+| --- | --- | --- |
+| api-ecr-push | app | backend |
+| migration-ecr-push | migration | backend-migration |
+
+共通処理は以下を順番に行い、どこかで失敗した場合は後続処理を停止する。
 
 1. 現在のGitコミットハッシュの先頭6桁をタグにする。
 2. AWS CLIでECRへログインする（トークンは標準入力でDockerへ渡す）。
 3. 現在のコードから`linux/amd64`向けイメージをビルドする。Dockerfile内のテスト・vetも実行する。
-4. `089244387218.dkr.ecr.ap-northeast-1.amazonaws.com/backend:<タグ>`へpushする。
+4. `089244387218.dkr.ecr.ap-northeast-1.amazonaws.com/<リポジトリ>:<タグ>`へpushする。
 
-接続先はMakefileの`ECR_PROFILE`・`ECR_REGION`・`ECR_REGISTRY`・`ECR_REPOSITORY`で指定している。別環境ではこれらをまとめて適切な値へ上書きする。未コミットの変更もビルド対象になるため、タグとソースを対応させるには実行前にコミットすること。
+AWS接続先はMakefileの`ECR_PROFILE`・`ECR_REGION`・`ECR_REGISTRY`で指定している。`ECR_REPOSITORY`・`DOCKER_TARGET`は各入口で明示する。共通処理を直接実行して対象が未指定なら停止する。未コミットの変更もビルド対象になるため、タグとソースを対応させるには実行前にコミットすること。
 
 ECRはIMMUTABLEのため同じタグを上書きできない。ライフサイクルポリシーはpush日時が新しい3イメージを保持する。通常は変更をコミットしてからビルドする。初回の`60e889`は、当該コミットのバックエンドコードに未コミットのDockerfileを加えてビルドしたイメージ。
