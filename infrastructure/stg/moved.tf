@@ -1,4 +1,14 @@
-# モジュール構成変更のみ。既存リソースを再作成せずState上のアドレスを引き継ぐ。
+# State上のアドレスを引き継ぐ。SecretのAWS名変更は別途置き換えになる。
+moved {
+  from = module.secrets_manager.aws_secretsmanager_secret.this
+  to   = module.secrets_manager.aws_secretsmanager_secret.app_user
+}
+
+moved {
+  from = module.migration_secret.aws_secretsmanager_secret.this
+  to   = module.secrets_manager.aws_secretsmanager_secret.migration_user
+}
+
 moved {
   from = module.ecs_task_definition.aws_ecs_task_definition.this
   to   = module.ecs_task_definition.aws_ecs_task_definition.api
