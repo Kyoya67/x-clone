@@ -100,7 +100,7 @@ module "ecs_task_definition" {
 
   backend = {
     family              = "api"
-    image               = "${module.ecr.api_repository_url}:60c38e"
+    image               = "${module.ecr.api_repository_url}:b78b2c"
     execution_role_arn  = module.iam.execution_role_arn
     task_role_arn       = module.iam.task_role_arn
     database_host       = module.rds.address
@@ -110,7 +110,7 @@ module "ecs_task_definition" {
 
   migration = {
     family               = "db-migrator"
-    image                = "${module.ecr.db_migrator_repository_url}:60c38e"
+    image                = "${module.ecr.db_migrator_repository_url}:b78b2c"
     execution_role_arn   = module.iam.migration_execution_role_arn
     task_role_arn        = module.iam.migration_task_role_arn
     database_host        = module.rds.address
@@ -120,6 +120,20 @@ module "ecs_task_definition" {
 
   region = local.region
   tags   = local.common_tags
+}
+
+module "ecs_service" {
+  source = "../modules/ecs_service"
+
+  name                = "api"
+  cluster_arn         = module.ecs.arn
+  task_definition_arn = module.ecs_task_definition.api_arn
+  subnet_ids          = module.subnet.app_private_ids
+  security_group_id   = module.security_group.backend_id
+  tags                = local.common_tags
+
+  # IAMポリシー・通信経路・SGルールの作成完了後にタスクを起動する。
+  depends_on = [module.iam, module.route_table, module.security_group]
 }
 
 module "rds" {

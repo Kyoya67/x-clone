@@ -1,6 +1,6 @@
 data "aws_region" "current" {}
 
-# ECSタスクに割り当てるSG。受信ルールはALB構築時に追加する。
+# APIタスクに割り当てるSG。現時点ではNATホストからの確認のみ許可する。
 resource "aws_security_group" "backend" {
   name        = "backend"
   description = "Backend ECS tasks"
@@ -13,6 +13,15 @@ resource "aws_security_group" "db" {
   description = "PostgreSQL access from backend tasks only"
   vpc_id      = var.vpc_id
   tags        = merge(var.tags, { Name = "db-sg" })
+}
+
+# SSMで接続したNATホストからAPIのhealthを確認する。外部公開はしない。
+resource "aws_vpc_security_group_ingress_rule" "backend_from_nat" {
+  security_group_id            = aws_security_group.backend.id
+  referenced_security_group_id = aws_security_group.nat.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8080
+  to_port                      = 8080
 }
 
 # SSM転送はNATホスト自身からRDSへの新しい接続になる。
