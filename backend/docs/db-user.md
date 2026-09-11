@@ -1,5 +1,7 @@
 # RDSのアプリ用DBユーザー
 
+全体像と各Go・shファイルの関係は[DB初期設定の流れ](db-operation-flow.md)を参照。
+
 ## 目的と実装範囲
 
 `cmd/db-user`は、管理者dbadminを使ってPostgreSQL内に`app_user`を作り、接続URLを既存のSecrets Manager `backend/database-url`へ登録する管理者向けGoコマンド。アプリのログインユーザーとは別であり、通常のHTTPサーバー起動時には実行しない。
@@ -7,6 +9,8 @@
 現在はコマンドと単体テストの実装まで。実RDSへのユーザー作成・Secret値登録はまだ実行していない。ローカルからは[NATインスタンス経由のSSMポート転送](../../infrastructure/docs/db-tunnel.md)を使用する。利用前にSSM用IAM・SG設定のapplyとセッション開始が必要。
 
 ## 処理
+
+初期構築では先に[ECS単発タスクのRDSマイグレーション](rds-migrations.md)を実行し、その後このコマンドでapp_userを作成・権限付与する。このDBユーザー設定は引き続きローカルからSSM転送経由で行う。接続URLとCA検証などの共通処理はinternal/dbadminに置く。マイグレーションタスクはSSMを使わずRDSへ直接接続する。
 
 1. AWS CLI経由でRDSのホスト名と管理者シークレットARNを取得する。
 2. Secrets Managerからdbadminの認証情報をメモリ上へ読み取り、RDSへverify-fullで接続する。
@@ -36,7 +40,7 @@ AWS_PROFILE=x-clone-terraform-stg AWS_REGION=ap-northeast-1 \
 
 AWSプロフィールを持たないVPC内の専用管理環境では、適切なIAMロールの認証情報を使いAWS_PROFILEは指定しない。現行のscratch版バックエンドイメージにはGoコマンド・AWS CLI・この管理ツールは含めていないため、そこでこのmakeコマンドを実行することはできない。
 
-クライアント側のエラーは認証情報が漏れない固定メッセージに置き換える。DB側の監査・SQLログへのアクセス権も別途管理する。実行後はマイグレーションと権限の再付与、必要な初期データ投入を行い、ECS起動・機能確認へ進む。
+クライアント側のエラーは認証情報が漏れない固定メッセージに置き換える。DB側の監査・SQLログへのアクセス権も別途管理する。マイグレーションとこのコマンドの実行後、必要な初期データ投入を行い、ECS起動・機能確認へ進む。
 
 ## テスト
 
