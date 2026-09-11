@@ -10,8 +10,9 @@ resource "aws_db_parameter_group" "this" {
 
   # 接続側のverify-fullとは別に、DB側でも平文接続を拒否する。
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
   }
 
   tags = var.tags

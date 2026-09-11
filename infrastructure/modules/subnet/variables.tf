@@ -23,23 +23,13 @@ variable "public_cidr_blocks" {
   }
 }
 
-variable "app_private_cidr_blocks" {
+variable "private_cidr_blocks" {
   type        = list(string)
-  description = "CIDR blocks for private application subnets."
+  description = "CIDR blocks for shared ECS and RDS private subnets."
 
   validation {
-    condition     = length(var.app_private_cidr_blocks) == length(var.availability_zones)
-    error_message = "app_private_cidr_blocks must contain one CIDR block per Availability Zone."
-  }
-}
-
-variable "db_private_cidr_blocks" {
-  type        = list(string)
-  description = "CIDR blocks for isolated database subnets."
-
-  validation {
-    condition     = length(var.db_private_cidr_blocks) == length(var.availability_zones)
-    error_message = "db_private_cidr_blocks must contain one CIDR block per Availability Zone."
+    condition     = length(var.private_cidr_blocks) == length(var.availability_zones)
+    error_message = "private_cidr_blocks must contain one CIDR block per Availability Zone."
   }
 }
 

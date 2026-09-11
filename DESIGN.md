@@ -2,12 +2,6 @@
 
 ## 1. 開発方針
 
-### stgのAPI起動確認
-
-APIはECSサービスで通常1タスク維持する。今回のPRは起動とRDS接続の確認で区切り、ALB・外部公開は後続PRに分ける。ECSのコンテナhealthCheckでHTTP応答を自動確認する。scratchを維持するためcurlの代わりにGo製コマンドを同梱する分、バイナリが1つ増える。DBの継続的な疎通は確認しない。[設定と確認手順](infrastructure/docs/ecs.md)。自動healthチェックの実環境での確認は未実施。
-
-開発の進捗は、GitHub Milestoneで管理する。対象となるIssueを同じMilestoneに紐づけ、Milestoneの進捗率で全体の達成状況を把握する。
-
 ```
 課題全体の完成
 ├── Milestone 1: ローカル開発基盤の構築
@@ -213,3 +207,9 @@ erDiagram
 ### DBユーザーとマイグレーション
 
 管理・マイグレーション・アプリのDBユーザーを分離する方針と、現在の実装との差は[DBユーザーとマイグレーション](backend/docs/db-operation-flow.md)にまとめる。
+
+### SG・IAMの命名整理
+
+API用はapi、マイグレーション用はdb-migratorを名前の基準とし、SG・IAMロール・カスタマー管理ポリシーとTerraform内部名をそろえる。権限の用途を見分けやすくする一方、AWS上の名前変更には再作成が必要となる。movedブロックで内部名の変更を追跡し、create_before_destroyで新しいリソースの作成を先行させる。apply前にplanで依存リソースの切り替えを確認し、単発タスク実行中の変更を避ける。開発者のIAMユーザー、DB・NAT、既存ロググループは改名しない。
+
+RDS側の許可SG切り替え時には一時的なDB接続断が起こり得るため、今回の改名は無停止を保証しない。apply後にAPIのhealthと単発マイグレーションの動作を確認する。
