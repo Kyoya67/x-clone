@@ -8,15 +8,26 @@ data "aws_iam_policy_document" "ecs_assume_role" {
   }
 }
 
-resource "aws_iam_role" "execution" {
-  name               = "backend-task-execution"
+/*********************************************************************
+ * API用IAMロール・ポリシー
+ *********************************************************************/
+resource "aws_iam_role" "api_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name               = "api-task-execution"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
   tags               = var.tags
 }
 
 # ECS基盤が起動時に使用する権限。アプリ本体には付与しない。
-resource "aws_iam_policy" "execution" {
-  name = "backend-task-execution"
+resource "aws_iam_policy" "api_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name = "api-task-execution"
   tags = var.tags
   policy = jsonencode({
     Version = "2012-10-17"
@@ -45,18 +56,89 @@ resource "aws_iam_policy" "execution" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "execution" {
-  role       = aws_iam_role.execution.name
-  policy_arn = aws_iam_policy.execution.arn
+resource "aws_iam_role_policy_attachment" "api_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  role       = aws_iam_role.api_execution.name
+  policy_arn = aws_iam_policy.api_execution.arn
 }
 
 # Goアプリは現在AWS APIを呼び出さないため、権限ポリシーを付けない。
-resource "aws_iam_role" "task" {
-  name               = "backend-task"
+resource "aws_iam_role" "api_task" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name               = "api-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
   tags               = var.tags
 }
 
+/*********************************************************************
+ * マイグレーション用IAMロール・ポリシー
+ *********************************************************************/
+# 管理者Secretへの権限は通常のバックエンド実行ロールに付けない。
+resource "aws_iam_role" "db_migrator_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name               = "db-migrator-task-execution"
+  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
+  tags               = var.tags
+}
+
+resource "aws_iam_policy" "db_migrator_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name = "db-migrator-task-execution"
+  tags = var.tags
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"]
+        Resource = var.migration_repository_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${var.migration_log_group_arn}:*"
+      },
+      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = var.migration_secret_arn }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "db_migrator_execution" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  role       = aws_iam_role.db_migrator_execution.name
+  policy_arn = aws_iam_policy.db_migrator_execution.arn
+}
+
+# コンテナ本体はAWS APIを呼ばない。DBの権限はmigration_userのSQL権限。
+resource "aws_iam_role" "db_migrator_task" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  name               = "db-migrator-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
+  tags               = var.tags
+}
+
+/*********************************************************************
+ * NATインスタンス用IAMロール・インスタンスプロファイル
+ *********************************************************************/
 resource "aws_iam_role" "nat_ssm" {
   name = "nat-ssm"
   assume_role_policy = jsonencode({

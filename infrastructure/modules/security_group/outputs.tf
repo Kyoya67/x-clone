@@ -3,9 +3,9 @@ output "nat_id" {
   description = "ID of the NAT instance security group."
 }
 
-output "backend_id" {
-  value       = aws_security_group.backend.id
-  description = "Security group for backend ECS tasks and migration tasks."
+output "api_id" {
+  value       = aws_security_group.api.id
+  description = "Security group for API ECS tasks."
 }
 
 output "db_id" {
