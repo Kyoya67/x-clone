@@ -130,20 +130,16 @@ module "ecs_service" {
   security_group_id   = module.security_group.api_id
   tags                = local.common_tags
 
-  # IAMポリシー・通信経路・SGルールの作成完了後にタスクを起動する。
   depends_on = [module.iam, module.route_table, module.security_group]
 }
 
 module "rds" {
   source = "../modules/rds"
 
-  # 新Secretへ保存した後にRDSのパスワードを変更する。
   depends_on = [module.secrets_manager]
 
   dbadmin_password         = var.dbadmin_password
   dbadmin_password_version = var.dbadmin_password_version
-  # 参照先の切り替え（次の作業）が終わるまでapplyを禁止する。
-  dbadmin_references_ready = false
 
   identifier        = "app-db"
   engine_version    = "16.15"
