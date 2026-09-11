@@ -1,30 +1,29 @@
-variable "family" {
-  type = string
+variable "backend" {
+  description = "通常バックエンドのタスク設定。"
+  type = object({
+    family                  = string
+    image                   = string
+    execution_role_arn      = string
+    task_role_arn           = string
+    database_url_secret_arn = string
+    log_group_name          = string
+  })
 }
 
-variable "execution_role_arn" {
-  type = string
+variable "migration" {
+  description = "単発マイグレーションのタスク設定。"
+  type = object({
+    family             = string
+    image              = string
+    execution_role_arn = string
+    task_role_arn      = string
+    database_host      = string
+    admin_secret_arn   = string
+    log_group_name     = string
+  })
 }
 
-variable "task_role_arn" {
-  type = string
-}
-
-variable "image" {
-  type = string
-}
-
-variable "database_url_secret_arn" {
-  type = string
-}
-
-variable "log_group_name" {
-  type = string
-}
-
-variable "region" {
-  type = string
-}
+variable "region" { type = string }
 
 variable "tags" {
   type    = map(string)

@@ -1,3 +1,8 @@
+variable "name" {
+  type        = string
+  description = "ECR repository name."
+}
+
 variable "image_count" {
   type        = number
   description = "Number of recent images retained by the lifecycle policy."

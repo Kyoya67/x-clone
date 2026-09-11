@@ -1,9 +1,4 @@
-output "repository_url" {
-  value       = aws_ecr_repository.this.repository_url
-  description = "Repository URL used for Docker push and ECS image references."
-}
-
-output "arn" {
-  value       = aws_ecr_repository.this.arn
-  description = "Repository ARN used in IAM policies."
-}
+output "backend_repository_url" { value = module.backend.repository_url }
+output "backend_arn" { value = module.backend.arn }
+output "migration_repository_url" { value = module.migration.repository_url }
+output "migration_arn" { value = module.migration.arn }

@@ -14,3 +14,9 @@ output "nat_instance_profile_name" {
   value      = aws_iam_instance_profile.nat_ssm.name
   depends_on = [aws_iam_role_policy_attachment.nat_ssm]
 }
+
+output "migration_execution_role_arn" {
+  value      = aws_iam_role.migration_execution.arn
+  depends_on = [aws_iam_role_policy_attachment.migration_execution]
+}
+output "migration_task_role_arn" { value = aws_iam_role.migration_task.arn }
