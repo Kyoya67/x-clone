@@ -9,11 +9,27 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
+)
+
+var openAdministrator = dbadmin.OpenAdministrator
+var runCommand = run
+var exit = os.Exit
+var randomRead = rand.Read
+var standardOutput io.Writer = os.Stdout
+var standardError io.Writer = os.Stderr
+
+var (
+	currentSecretVersionExists = dbadmin.CurrentSecretVersionExists
+	getSecretString            = dbadmin.GetSecretString
+	putSecretString            = dbadmin.PutSecretString
+	connectionURL              = dbadmin.ConnectionURL
+	openDatabase               = dbadmin.OpenDatabase
 )
 
 type credentials struct {
@@ -22,31 +38,40 @@ type credentials struct {
 }
 
 func main() {
-	instance := flag.String("instance", "app-db", "RDS instance identifier")
-	adminSecretID := flag.String("admin-secret", "db/dbadmin", "Administrator username/password secret")
-	appSecretID := flag.String("secret", "db/app_user", "Application username/password secret")
-	migrationSecretID := flag.String("migration-secret", "db/migration_user", "Migration username/password secret")
-	caFile := flag.String("ca-file", "", "Local RDS CA bundle path (required)")
-	localForwardEndpoint := flag.String("local-forward-endpoint", "", "Optional local SSM port forwarding endpoint, e.g. 127.0.0.1:15432")
-	flag.Parse()
+	exit(runCLI(os.Args[1:], standardOutput, standardError))
+}
+
+func runCLI(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("db-user", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	instance := flags.String("instance", "app-db", "RDS instance identifier")
+	adminSecretID := flags.String("admin-secret", "db/dbadmin", "Administrator username/password secret")
+	appSecretID := flags.String("secret", "db/app_user", "Application username/password secret")
+	migrationSecretID := flags.String("migration-secret", "db/migration_user", "Migration username/password secret")
+	caFile := flags.String("ca-file", "", "Local RDS CA bundle path (required)")
+	localForwardEndpoint := flags.String("local-forward-endpoint", "", "Optional local SSM port forwarding endpoint, e.g. 127.0.0.1:15432")
+	if err := flags.Parse(args); err != nil {
+		return 1
+	}
 	if *caFile == "" {
-		fmt.Fprintln(os.Stderr, "--ca-file is required")
-		os.Exit(1)
+		fmt.Fprintln(stderr, "--ca-file is required")
+		return 1
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := run(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *localForwardEndpoint, *adminSecretID); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	if err := runCommand(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *localForwardEndpoint, *adminSecretID); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
-	fmt.Println("app_user and migration_user configured; username/password JSON stored in Secrets Manager")
+	fmt.Fprintln(stdout, "app_user and migration_user configured; username/password JSON stored in Secrets Manager")
+	return 0
 }
 
 func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, localForwardEndpoint, adminSecretID string) error {
 	if appSecretID == migrationSecretID {
 		return errors.New("application and migration secrets must be different")
 	}
-	db, rdsEndpoint, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, localForwardEndpoint)
+	db, rdsEndpoint, err := openAdministrator(ctx, instance, adminSecretID, caFile, localForwardEndpoint)
 	if err != nil {
 		return err
 	}
@@ -74,13 +99,13 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 
 // DBユーザーのセットアップを行う。既存のシークレットがある場合は、それを利用して接続確認を行い、必要に応じてパスワードを設定する。
 func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint, secretID, caFile, localForwardEndpoint, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
-	hasCurrentSecret, err := dbadmin.CurrentSecretVersionExists(ctx, secretID)
+	hasCurrentSecret, err := currentSecretVersionExists(ctx, secretID)
 	if err != nil {
 		return err
 	}
 	existingSecretPassword := ""
 	if hasCurrentSecret {
-		existingSecretPassword, err = dbadmin.GetSecretString(ctx, secretID)
+		existingSecretPassword, err = getSecretString(ctx, secretID)
 		if err != nil {
 			return err
 		}
@@ -98,7 +123,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 	}
 	// もしRDSにDBユーザーが存在し、既存のシークレットがある場合は、その認証情報で接続できるか確認する
 	if roleExists && existingSecretPassword != "" {
-		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(rdsEndpoint.Host, rdsEndpoint.Port, role, password, caFile), localForwardEndpoint)
+		appDB, err := openDatabase(connectionURL(rdsEndpoint.Host, rdsEndpoint.Port, role, password, caFile), localForwardEndpoint)
 		if err != nil {
 			return errors.New("cannot initialize database connection")
 		}
@@ -116,7 +141,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 		return errors.New("cannot encode database credentials")
 	}
 	if existingSecretPassword == "" {
-		if err := dbadmin.PutSecretString(ctx, secretID, string(secretJSON)); err != nil {
+		if err := putSecretString(ctx, secretID, string(secretJSON)); err != nil {
 			return err
 		}
 	}
@@ -132,7 +157,7 @@ func databaseUserPassword(existingSecretPassword, role string) (string, error) {
 		return saved.Password, nil
 	}
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randomRead(b); err != nil {
 		return "", errors.New("cannot generate password")
 	}
 	return hex.EncodeToString(b), nil

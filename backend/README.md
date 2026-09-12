@@ -141,7 +141,7 @@ go test ./...
 
 ### カバレッジ
 
-テスト方針、テスト対象、カバレッジ結果は[`docs/api-testing.md`](docs/api-testing.md)を参照してください。
+テスト方針、テスト対象、カバレッジ結果は[`docs/go-testing.md`](docs/go-testing.md)を参照してください。
 
 ## コード整形
 
