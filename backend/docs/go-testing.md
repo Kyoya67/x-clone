@@ -4,13 +4,13 @@
 
 Controllerの依存先はFakeへ差し替え、HTTPリクエストに対するレスポンスを検証する。
 
-`post.go`では、次の観点をテストしている。
+### `post.go`では、次の観点をテストしている。
 
 - 正常なリクエストで`201 Created`と投稿データを返す
 - Serviceが返した内部エラーを`500 Internal Server Error`へ変換する
 - DBなどの内部エラーの詳細をレスポンスへ含めない
 
-`follow.go`では、次の観点をテストしている。
+### `follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除で`204 No Content`を返す
 - URLの`userId`をServiceへ渡す
@@ -44,14 +44,14 @@ go tool cover -func=/tmp/controller-cover.out | grep -E 'post.go|follow.go'
 
 Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼び出しを検証する。
 
-`post.go`では、次の観点をテストしている。
+### `post.go`では、次の観点をテストしている。
 
 - 投稿内容の前後の空白を除去してrepositoryへ渡す
 - 1文字未満の投稿を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
 - フォロー中ユーザーIDの取得をrepositoryへ委譲する
 
-`follow.go`では、次の観点をテストしている。
+### `follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除をrepositoryへ委譲する
 - 自分自身のフォロー・フォロー解除を拒否する
@@ -81,20 +81,20 @@ go tool cover -func=/tmp/service-cover.out | grep -E 'post.go|follow.go'
 
 Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQLとDB結果のマッピングを検証する。
 
-`post.go`では、次の観点をテストしている。
+### `post.go`では、次の観点をテストしている。
 
 - `INSERT`へ投稿者IDと投稿内容を渡す
 - DBから返された投稿データをモデルへマッピングする
 - DBエラーをアプリケーションエラーへ分類する
 
-`follow.go`では、次の観点をテストしている。
+### `follow.go`では、次の観点をテストしている。
 
 - フォロー登録SQLと引数を検証する
 - フォロー解除SQLと引数を検証する
 - フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
 
-`post_error.go`では、次の観点をテストしている。
+### `post_error.go`では、次の観点をテストしている。
 
 - PostgreSQLのエラーコードをアプリケーションエラーへ分類する
 
@@ -123,18 +123,18 @@ go tool cover -func=/tmp/repository-cover.out | grep -E 'post|follow'
 
 アプリケーションエラーでは、共通エラー型・HTTPレスポンス変換・ステータスコード分類を検証する。
 
-`error.go`では、次の観点をテストしている。
+### `error.go`では、次の観点をテストしている。
 
 - エラーメッセージを返す
 - 元のエラーを保持する
 
-`errorHandler.go`では、次の観点をテストしている。
+### `errorHandler.go`では、次の観点をテストしている。
 
 - 想定外のエラーを共通エラーへ変換する
 - エラー原因の詳細をレスポンスへ含めない
 - エラー種別に応じたHTTPステータスコードを返す
 
-`errorcode.go`では、次の観点をテストしている。
+### `errorcode.go`では、次の観点をテストしている。
 
 - エラーコード・メッセージ・元のエラーを共通エラーへまとめる
 
@@ -161,22 +161,16 @@ go tool cover -func=/tmp/apperrors-cover.out
 
 DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロール作成、app_user・migration_userの権限付与、既存テーブルの所有権移譲を検証する。
 
-#### main
-
-main関数では、次の観点をテストしている。
+### main関数では、次の観点をテストしている。
 
 - CLI処理の終了コードをプロセス終了へ渡す
 
-#### runCLI
-
-runCLI関数では、次の観点をテストしている。
+### runCLI関数では、次の観点をテストしている。
 
 - CLI引数を読み取り、正常終了・異常終了の終了コードと出力を返す
 - `--ca-file`が未指定の場合はエラーにする
 
-#### run
-
-run関数では、次の観点をテストしている。
+### run関数では、次の観点をテストしている。
 
 - app_user用Secretとmigration_user用Secretが同じ場合は拒否する
 - 管理者接続失敗時は処理を止める
@@ -185,18 +179,14 @@ run関数では、次の観点をテストしている。
 - app_userとmigration_userを順にセットアップする
 - commit失敗時は再実行を促すエラーにする
 
-#### setupUser
-
-setupUser関数では、次の観点をテストしている。
+### setupUser関数では、次の観点をテストしている。
 
 - Secretの有無に応じてDBユーザーをセットアップする
 - 既存DBユーザーの認証情報が不正な場合は拒否する
 - 既存DBユーザーの認証情報で接続確認する
 - Secret取得・保存に失敗した場合はエラーにする
 
-#### databaseUserPassword
-
-databaseUserPassword関数では、次の観点をテストしている。
+### databaseUserPassword関数では、次の観点をテストしている。
 
 - 既存SecretからDBユーザーのパスワードを読み取る
 - Secret内のユーザー名が期待するDBロールと異なる場合は拒否する
@@ -204,18 +194,14 @@ databaseUserPassword関数では、次の観点をテストしている。
 - 既存Secretがない場合は新しいパスワードを生成する
 - パスワード生成に失敗した場合はエラーにする
 
-#### createRole
-
-createRole関数では、次の観点をテストしている。
+### createRole関数では、次の観点をテストしている。
 
 - 対応していないDBロール名を拒否する
 - DBロール存在確認の失敗をエラーにする
 - Secretがある既存DBロールは維持する
 - Secretがない既存DBロールは拒否する
 
-#### configureAppRole
-
-configureAppRole関数では、次の観点をテストしている。
+### configureAppRole関数では、次の観点をテストしている。
 
 - app_userを作成し、DB接続・schema利用・既存アプリテーブルへの読み書き権限を付与する
 - app_userが存在するがSecretがない場合は拒否する
@@ -223,9 +209,7 @@ configureAppRole関数では、次の観点をテストしている。
 - DBエラーの詳細をそのまま外へ出さない
 - DB接続・schema利用・テーブル権限付与の各失敗を区別する
 
-#### configureMigrationRole
-
-configureMigrationRole関数では、次の観点をテストしている。
+### configureMigrationRole関数では、次の観点をテストしている。
 
 - migration_userを作成し、DB接続・schema利用・schema作成権限を付与する
 - migration_userが既に存在する場合は既存ロールを維持する
@@ -234,9 +218,7 @@ configureMigrationRole関数では、次の観点をテストしている。
 - DBエラーの詳細をそのまま外へ出さない
 - DB接続・schema利用・管理者membership・拡張準備の各失敗を区別する
 
-#### transferMigrationTables
-
-transferMigrationTables関数では、次の観点をテストしている。
+### transferMigrationTables関数では、次の観点をテストしている。
 
 - アプリテーブルとschema_migrationsの所有者をmigration_userへ変更する
 - 存在しないテーブルは所有者変更をスキップする
@@ -269,7 +251,7 @@ go tool cover -func=/tmp/db-user-cover.out
 
 DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポートフォワード時の接続先差し替えを検証する。
 
-`admin.go`では、次の観点をテストしている。
+### `admin.go`では、次の観点をテストしている。
 
 - PostgreSQL接続URLを組み立てる
 - 明示した管理者Secretを使ってRDS接続情報を組み立てる
@@ -280,7 +262,7 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 - 管理者Secretのパスワードが空の場合は拒否する
 - 不正なローカル転送先を指定した場合はDB接続初期化エラーにする
 
-`aws.go`では、次の観点をテストしている。
+### `aws.go`では、次の観点をテストしている。
 
 - AWS SDK設定の読み込み失敗を共通エラーにする
 - RDSインスタンスから接続先ホスト名とポートを取得する
@@ -290,7 +272,7 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 - Secretの文字列を保存する
 - AWS SDKのエラー詳細をそのまま外へ出さない
 
-`tunnel.go`では、次の観点をテストしている。
+### `tunnel.go`では、次の観点をテストしている。
 
 - 実DBへ接続せずにDB接続ハンドルを作成する
 - 不正なDB接続URLを拒否する
