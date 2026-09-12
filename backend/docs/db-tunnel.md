@@ -68,6 +68,22 @@ func configureTunnel(config *pgx.ConnConfig, endpoint string) error {
 
 `config.DialFunc`で、pgxが実際にTCP接続する先を`endpoint`へ差し替える。一方で、`databaseURL`上のRDSホスト名は残しているため、TLS証明書の検証は`127.0.0.1`ではなくRDSホスト名に対して行われる。
 
+```mermaid
+flowchart LR
+  URL["databaseURL<br/>RDS本物のホスト名"]
+  PGX["pgx接続設定"]
+  TLS["TLS検証<br/>RDSホスト名で確認"]
+  DIAL["DialFunc<br/>TCP接続先を差し替え"]
+  LOOP["127.0.0.1:15432<br/>SSM入口"]
+  RDS["RDS:5432"]
+
+  URL --> PGX
+  PGX --> TLS
+  PGX --> DIAL
+  DIAL --> LOOP
+  LOOP --> RDS
+```
+
 ```text
 TLS検証先: RDS本物のホスト名
 TCP接続先: 127.0.0.1:15432
