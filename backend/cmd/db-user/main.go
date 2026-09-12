@@ -10,10 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,7 +54,7 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 		return errors.New("cannot start database transaction")
 	}
 	defer tx.Rollback()
-	// ロックを取得して、他のオペレーターと競合しないようにする。
+	// このdb-user/main.goを実行中他のプロセスでこのdb-user/main.goを実行しても、同じロックを取得できず待機する。
 	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(81421001)"); err != nil {
 		return errors.New("cannot acquire setup lock")
 	}
@@ -79,17 +76,17 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 	if err != nil {
 		return err
 	}
-	existingURL := ""
+	existingSecretString := ""
 	if hasCurrentSecret {
-		existingURL, err = dbadmin.GetSecretString(ctx, secretID)
+		existingSecretString, err = dbadmin.GetSecretString(ctx, secretID)
 		if err != nil {
 			return err
 		}
-		if existingURL == "" {
+		if existingSecretString == "" {
 			return errors.New("database user secret is empty")
 		}
 	}
-	password, err := rolePassword(existingURL, rdsEndpoint.Host, rdsEndpoint.Port, role)
+	password, err := databaseUserPassword(existingSecretString, role)
 	if err != nil {
 		return err
 	}
@@ -98,7 +95,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 	if err := tx.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role).Scan(&roleExists); err != nil {
 		return errors.New("cannot inspect database role")
 	}
-	if roleExists && existingURL != "" {
+	if roleExists && existingSecretString != "" {
 		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(rdsEndpoint.Host, rdsEndpoint.Port, role, password, caFile), localForwardEndpoint)
 		if err != nil {
 			return errors.New("cannot initialize database connection")
@@ -108,15 +105,14 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 			return errors.New("saved database credentials cannot connect; refusing to change password")
 		}
 	}
-	if err := configure(ctx, tx, password, existingURL != ""); err != nil {
+	if err := configure(ctx, tx, password, existingSecretString != ""); err != nil {
 		return err
 	}
 	secretJSON, err := json.Marshal(credentials{Username: role, Password: password})
 	if err != nil {
 		return errors.New("cannot encode database credentials")
 	}
-	// 旧URL形式も、認証を確認した同じパスワードでJSON形式へ移行する。
-	if existingURL == "" || strings.HasPrefix(existingURL, "postgres://") {
+	if existingSecretString == "" {
 		// Publish before commit. If commit fails, retry reuses the saved password.
 		if err := dbadmin.PutSecretString(ctx, secretID, string(secretJSON)); err != nil {
 			return err
@@ -130,24 +126,13 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-func rolePassword(existing, host string, port int, role string) (string, error) {
-	if existing != "" && !strings.HasPrefix(existing, "postgres://") {
+func databaseUserPassword(existing, role string) (string, error) {
+	if existing != "" {
 		var saved credentials
 		if err := json.Unmarshal([]byte(existing), &saved); err != nil || saved.Username != role || saved.Password == "" {
 			return "", errors.New("invalid database credentials; refusing to overwrite")
 		}
 		return saved.Password, nil
-	}
-	if existing != "" {
-		u, err := url.Parse(existing)
-		if err != nil || u.Scheme != "postgres" || u.Host != net.JoinHostPort(host, strconv.Itoa(port)) || u.Path != "/app" || u.User == nil || u.User.Username() != role || u.Query().Get("sslmode") != "verify-full" || u.Query().Get("sslrootcert") != "/app/certs/rds-ca-bundle.pem" {
-			return "", errors.New("existing database secret does not match target; refusing to overwrite")
-		}
-		password, ok := u.User.Password()
-		if !ok || password == "" {
-			return "", errors.New("database password is missing")
-		}
-		return password, nil
 	}
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

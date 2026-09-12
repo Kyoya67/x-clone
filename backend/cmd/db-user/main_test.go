@@ -25,27 +25,27 @@ func TestConnectionURLEscapesPassword(t *testing.T) {
 }
 
 func TestApplicationPasswordReusesExistingValue(t *testing.T) {
-	existing := dbadmin.ConnectionURL("db.example", 5432, "app_user", "saved-password", "/app/certs/rds-ca-bundle.pem")
-	got, err := rolePassword(existing, "db.example", 5432, "app_user")
+	existing := `{"username":"app_user","password":"saved-password"}`
+	got, err := databaseUserPassword(existing, "app_user")
 	if err != nil || got != "saved-password" {
 		t.Fatal("existing password was not preserved")
 	}
 }
 
-func TestApplicationPasswordRejectsDifferentTarget(t *testing.T) {
-	existing := dbadmin.ConnectionURL("other.example", 5432, "app_user", "secret", "/app/certs/rds-ca-bundle.pem")
-	_, err := rolePassword(existing, "db.example", 5432, "app_user")
-	if err == nil || strings.Contains(err.Error(), "secret") && strings.Contains(err.Error(), existing) {
+func TestApplicationPasswordRejectsInvalidSecretFormat(t *testing.T) {
+	existing := "postgres://app_user:secret@db.example:5432/app"
+	_, err := databaseUserPassword(existing, "app_user")
+	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatal("expected safe rejection")
 	}
 }
 
 func TestApplicationPasswordGeneratesRandomValue(t *testing.T) {
-	a, err := rolePassword("", "db.example", 5432, "app_user")
+	a, err := databaseUserPassword("", "app_user")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := rolePassword("", "db.example", 5432, "app_user")
+	b, err := databaseUserPassword("", "app_user")
 	if err != nil || len(a) != 64 || a == b {
 		t.Fatal("invalid random password")
 	}
@@ -66,7 +66,7 @@ func newTransaction(t *testing.T) (*sql.Tx, sqlmock.Sqlmock) {
 	return tx, mock
 }
 
-func TestConfigureRoleCreatesUserAndGrantsOnlyApplicationTables(t *testing.T) {
+func TestConfigureAppRoleCreatesUserAndGrantsOnlyApplicationTables(t *testing.T) {
 	tx, mock := newTransaction(t)
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectExec("CREATE ROLE app_user LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD").WillReturnResult(sqlmock.NewResult(0, 0))
@@ -78,7 +78,7 @@ func TestConfigureRoleCreatesUserAndGrantsOnlyApplicationTables(t *testing.T) {
 	mock.ExpectExec("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.posts TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
 	mock.ExpectExec("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.follows TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	if err := configureRole(context.Background(), tx, "test-only-password", false); err != nil {
+	if err := configureAppRole(context.Background(), tx, "test-only-password", false); err != nil {
 		t.Fatal(err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -86,10 +86,10 @@ func TestConfigureRoleCreatesUserAndGrantsOnlyApplicationTables(t *testing.T) {
 	}
 }
 
-func TestConfigureRoleRefusesUnknownExistingUser(t *testing.T) {
+func TestConfigureAppRoleRefusesUnknownExistingUser(t *testing.T) {
 	tx, mock := newTransaction(t)
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	if err := configureRole(context.Background(), tx, "test-only-password", false); err == nil {
+	if err := configureAppRole(context.Background(), tx, "test-only-password", false); err == nil {
 		t.Fatal("expected rejection")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -97,7 +97,7 @@ func TestConfigureRoleRefusesUnknownExistingUser(t *testing.T) {
 	}
 }
 
-func TestConfigureRoleReusesUserBeforeMigrations(t *testing.T) {
+func TestConfigureAppRoleReusesUserBeforeMigrations(t *testing.T) {
 	tx, mock := newTransaction(t)
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
@@ -105,7 +105,7 @@ func TestConfigureRoleReusesUserBeforeMigrations(t *testing.T) {
 	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	if err := configureRole(context.Background(), tx, "unchanged", true); err != nil {
+	if err := configureAppRole(context.Background(), tx, "unchanged", true); err != nil {
 		t.Fatal(err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -113,11 +113,11 @@ func TestConfigureRoleReusesUserBeforeMigrations(t *testing.T) {
 	}
 }
 
-func TestConfigureRoleDoesNotExposeDatabaseError(t *testing.T) {
+func TestConfigureAppRoleDoesNotExposeDatabaseError(t *testing.T) {
 	tx, mock := newTransaction(t)
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectExec("CREATE ROLE").WillReturnError(errors.New("password=private-value"))
-	err := configureRole(context.Background(), tx, "private-value", false)
+	err := configureAppRole(context.Background(), tx, "private-value", false)
 	if err == nil || strings.Contains(err.Error(), "private-value") {
 		t.Fatal("expected sanitized error")
 	}

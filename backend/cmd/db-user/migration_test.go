@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
 )
 
 func TestConfigureMigrationRoleCreatesUserBeforeMigrations(t *testing.T) {
@@ -57,16 +56,16 @@ func TestConfigureMigrationRoleRejectsUserWithoutSecret(t *testing.T) {
 }
 
 func TestMigrationPasswordReusesSavedValue(t *testing.T) {
-	existing := dbadmin.ConnectionURL("db.example", 5432, "migration_user", "saved-password", "/app/certs/rds-ca-bundle.pem")
-	password, err := rolePassword(existing, "db.example", 5432, "migration_user")
+	existing := `{"username":"migration_user","password":"saved-password"}`
+	password, err := databaseUserPassword(existing, "migration_user")
 	if err != nil || password != "saved-password" {
 		t.Fatal("expected saved migration password")
 	}
 }
 
 func TestMigrationPasswordRejectsApplicationSecret(t *testing.T) {
-	existing := dbadmin.ConnectionURL("db.example", 5432, "app_user", "private-password", "/app/certs/rds-ca-bundle.pem")
-	_, err := rolePassword(existing, "db.example", 5432, "migration_user")
+	existing := `{"username":"app_user","password":"private-password"}`
+	_, err := databaseUserPassword(existing, "migration_user")
 	if err == nil || strings.Contains(err.Error(), "private-password") {
 		t.Fatal("expected safe rejection of application secret")
 	}
