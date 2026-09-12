@@ -118,6 +118,47 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 | ⭕️   | Vitest | Viteと設定やモジュール変換の考え方を共有しやすい | 今回のVite構成に合わせやすいため採用                                     |
 | —    | Jest   | Reactを含むエコシステムで実績と情報量が多い      | Viteとは別に変換設定などを整える必要があり、今回はVitestより設定が増える |
 
+### フロントエンドの配信方式：S3＋CloudFrontとAmplify Hosting
+
+採用方式は未決定。[Issue #27](https://github.com/Kaminashi-Inc/ENG-1103_Kyoya67/issues/27)で、stg.x-clone.kyo8.devへの公開とAPIへの疎通を実装する。
+
+#### 比較の前提
+
+- React＋ViteのSPAをビルドした静的ファイルを配信する。フロント用の常駐サーバーは不要。
+- どちらを選んでも、Go APIは既存のECS、DBは既存のRDSを使う。
+- AmplifyはHostingのみを比較対象とし、認証・DBなどのAmplifyバックエンド機能への置き換えは行わない。Viteの成果物distを配信できる。[Vite配信の公式手順](https://docs.amplify.aws/gen1/javascript/deploy-and-host/frameworks/deploy-vite-site/)
+
+#### 比較
+
+| 観点 | S3＋CloudFront | Amplify Hosting |
+| --- | --- | --- |
+| 役割 | S3で静的ファイルを保管し、CloudFrontで配信する | ビルド・デプロイ・配信をまとめて管理する |
+| 構築・運用の負担 | バケットのアクセス制御、CDN、キャッシュ、デプロイ手順を自分で組み立てる | 設定対象をアプリ・ブランチ・ビルド設定に集約しやすい |
+| デプロイ・CI/CD | CIでビルドし、S3へ配置。キャッシュ更新や旧成果物の保持・戻し方も設計する | Git連携による自動ビルド・デプロイを利用できる。[公式概要](https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html) |
+| Terraform管理 | S3・CloudFront・IAM・DNSなどを個別に管理できる | アプリ・ブランチ・ドメイン等を管理できる。配信基盤の内部リソースを個別管理する方式ではない。[AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/6.34.0/docs/resources/amplify_app.html) |
+| 独自ドメイン・HTTPS | DNSとCloudFrontの証明書を設定する。ACM証明書はus-east-1に用意する。[証明書要件](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html) | 独自ドメインを関連付け、Amplify管理の証明書を利用できる。[独自ドメイン](https://docs.aws.amazon.com/amplify/latest/userguide/custom-domains.html) |
+| 配信元の保護 | S3を非公開にし、OAC経由でCloudFrontからのみ取得させる構成にする。[オリジン設定](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistS3AndCustomOrigins.html) | 静的配信用のS3アクセス制御を自分で組み立てる必要はない。アプリやAPIの利用者認証は別途必要 |
+| APIへの接続 | CloudFrontで静的ファイルとAPIの転送先を分ける、またはブラウザから別APIドメインへ接続する | HTTPSのAPIへのリバースプロキシrewrite、またはブラウザから別APIドメインへ接続する。[rewrite設定](https://docs.aws.amazon.com/amplify/latest/userguide/redirect-rewrite-examples.html#reverse-proxy-rewrite) |
+| SPAの再読み込み | 画面URLをindex.htmlへ振り向ける処理を設計する | SPA向けrewriteを設定する。APIへの転送ルールとは分ける |
+| 費用 | S3の保存・リクエスト、CloudFrontの利用プラン・通信量、CIの費用などを合算 | ビルド時間、成果物の保存、配信量などが課金対象 |
+| 今回との相性（評価） | 配信・API経路・権限を細かく設計し、Terraformで追いたい場合に向く | フロント配信の管理を減らし、アプリの公開・動作確認を早く進めたい場合に向く |
+
+費用はアクセス量・ビルド頻度・無料枠・利用プランで変わるため、現時点ではどちらが安いか断定しない。比較時は同じ条件で見積もる。既存のECS・RDSや、追加するALB等の費用は別途必要。[S3料金](https://aws.amazon.com/s3/pricing/)、[CloudFront料金](https://aws.amazon.com/cloudfront/pricing/)、[Amplify料金](https://aws.amazon.com/amplify/pricing/)
+
+#### 今回、どちらでも必要な対応
+
+- ECS APIへの入口を用意する。フロントを公開するだけでは、プライベートサブネットのAPIへ接続できない。
+- 現在のフロントは/apiを呼び、Viteの開発用プロキシがプレフィックスを除去している。公開環境にも同等の転送・パス変換を用意するか、APIのURL設計を変更する。
+- 別オリジンのAPIを呼ぶ場合はCORSを設定する。同一オリジンにする場合はAPI転送とSPAのrewriteを分け、APIエラーをindex.htmlに置き換えない。
+- 投稿・フォローの書き込みと利用者別の応答を考慮し、APIのHTTPメソッド・ヘッダー転送・キャッシュ方針を確認する。
+- Amplify採用時は、このリポジトリのfrontendをアプリルートとしてビルド設定する。[モノレポ設定](https://docs.aws.amazon.com/amplify/latest/userguide/monorepo-configuration.html)
+
+#### 判断基準
+
+- 配信基盤の制御・学習を優先するならS3＋CloudFront。
+- フロントのデプロイ運用を簡単にするならAmplify Hosting。
+- Terraformを使うことだけを理由にAmplifyを除外しない。Amplifyを採用しても、ECSのデプロイやDBマイグレーションのCI/CDは別途設計する。
+
 ### バックエンド
 
 | 採用 | 選択肢                   | 役割             | 判断理由                                                                                                            |
