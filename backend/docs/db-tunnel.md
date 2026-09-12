@@ -18,113 +18,57 @@
 ## `OpenDatabase`
 
 ```go
-config, err := pgx.ParseConfig(databaseURL)
+func OpenDatabase(databaseURL, tunnel string) (*sql.DB, error) {
+    // databaseURLにはRDS本物のホスト名を入れておく。TLS検証でこのホスト名を使うため。
+    config, err := pgx.ParseConfig(databaseURL)
+    if err != nil {
+        return nil, errors.New("invalid database configuration")
+    }
+    if err := configureTunnel(config, tunnel); err != nil {
+        return nil, err
+    }
+    return stdlib.OpenDB(*config), nil
+}
 ```
 
-`databaseURL`をpgxの接続設定へ変換する。この時点ではまだDBへ接続しない。
-
-`databaseURL`にはRDS本物のホスト名を残す。
-
-```text
-app-db.xxxxx.ap-northeast-1.rds.amazonaws.com
-```
-
-このホスト名は、RDSのTLS証明書を検証するときに使う。
-
-```go
-configureTunnel(config, tunnel)
-```
-
-`--tunnel`が指定されていれば、実際のTCP接続先だけローカルのSSM入口へ差し替える。
-
-```go
-return stdlib.OpenDB(*config), nil
-```
-
-`database/sql`で扱える`*sql.DB`を作る。実際の接続は、後続の`PingContext`や`QueryContext`などで発生する。
+`databaseURL`をpgxの接続設定へ変換し、必要ならSSMトンネル用の設定を追加する。ここではまだDBへ接続しない。実際の接続は後続の`PingContext`や`QueryContext`などで発生する。
 
 ## `configureTunnel`
 
 ```go
-if endpoint == "" {
+func configureTunnel(config *pgx.ConnConfig, endpoint string) error {
+    if endpoint == "" {
+        return nil
+    }
+    // endpointはRDSではなく、ローカルPC上のSSMポートフォワード入口。
+    // 例: 127.0.0.1:15432
+    host, port, err := net.SplitHostPort(endpoint)
+    if err != nil {
+        return errors.New("tunnel must be a loopback IP and port")
+    }
+    ip := net.ParseIP(host)
+    p, err := strconv.Atoi(port)
+    // ローカルのSSMトンネルだけを許可するため、127.0.0.1のようなloopback IPに限定する。
+    if ip == nil || !ip.IsLoopback() || err != nil || p < 1 || p > 65535 {
+        return errors.New("tunnel must be a loopback IP and valid port")
+    }
+    dialer := net.Dialer{Timeout: 10 * time.Second}
+    // pgxの接続処理を差し替え、実際のTCP接続だけendpointへ向ける。
+    // これによりTLS検証先はRDSホスト名のまま、接続先だけ127.0.0.1:15432になる。
+    config.DialFunc = func(ctx context.Context, network, _ string) (net.Conn, error) {
+        return dialer.DialContext(ctx, network, endpoint)
+    }
+    // endpointのhostは検証済みのloopback IPなので、DNS解決せずそのまま使わせる。
+    config.LookupFunc = func(context.Context, string) ([]string, error) { return []string{host}, nil }
     return nil
 }
 ```
 
-`--tunnel`が空なら何もしない。RDSへ直接接続する設定のままにする。
+`endpoint`には`127.0.0.1:15432`のようなローカルのSSM入口を渡す。RDSホスト名や外部ホストを渡さないように、loopback IPと有効なportだけを許可する。
 
-```go
-host, port, err := net.SplitHostPort(endpoint)
-```
-
-`127.0.0.1:15432`をhostとportに分ける。
-
-```text
-host = 127.0.0.1
-port = 15432
-```
-
-```go
-ip := net.ParseIP(host)
-```
-
-hostがIPアドレスとして正しいか確認する。`localhost`のような名前は許可しない。
-
-```go
-p, err := strconv.Atoi(port)
-```
-
-portが数値か確認する。
-
-```go
-if ip == nil || !ip.IsLoopback() || err != nil || p < 1 || p > 65535 {
-    return errors.New("tunnel must be a loopback IP and valid port")
-}
-```
-
-`--tunnel`には、`127.0.0.1`のようなloopback IPと正しいportだけを許可する。RDSホスト名や外部ホストを渡さないためのチェック。
-
-```go
-dialer := net.Dialer{Timeout: 10 * time.Second}
-```
-
-TCP接続用の設定。10秒以内につながらなければ失敗にする。
-
-```go
-config.DialFunc = func(ctx context.Context, network, _ string) (net.Conn, error) {
-    return dialer.DialContext(ctx, network, endpoint)
-}
-```
-
-pgxが実際にTCP接続するときの接続先を差し替える。
-
-通常はRDS本物のホストへ接続する。
-
-```text
-app-db.xxxxx.ap-northeast-1.rds.amazonaws.com:5432
-```
-
-この設定により、実際のTCP接続先だけSSM入口へ変わる。
-
-```text
-127.0.0.1:15432
-```
-
-ただし、`databaseURL`上のRDSホスト名は残している。そのため、TLS証明書の検証は`127.0.0.1`ではなくRDSホスト名に対して行われる。
-
-```go
-config.LookupFunc = func(context.Context, string) ([]string, error) {
-    return []string{host}, nil
-}
-```
-
-DNS解決を差し替える。`endpoint`のhostは検証済みのloopback IPなので、そのまま返す。
-
-## まとめ
+`config.DialFunc`で、pgxが実際にTCP接続する先を`endpoint`へ差し替える。一方で、`databaseURL`上のRDSホスト名は残しているため、TLS証明書の検証は`127.0.0.1`ではなくRDSホスト名に対して行われる。
 
 ```text
 TLS検証先: RDS本物のホスト名
 TCP接続先: 127.0.0.1:15432
 ```
-
-RDSはprivate subnetにあるため、開発者PCから直接接続できない。そこでTCP接続先だけSSMポートフォワードの入口へ差し替え、TLS検証ではRDS本物のホスト名を使う。
