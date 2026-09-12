@@ -119,6 +119,44 @@ go test ./internal/repositories -run '^(TestPostRepository|TestFollowRepository|
 go tool cover -func=/tmp/repository-cover.out | grep -E 'post|follow'
 ```
 
+## アプリケーションエラーテスト
+
+アプリケーションエラーでは、共通エラー型・HTTPレスポンス変換・ステータスコード分類を検証する。
+
+`error.go`では、次の観点をテストしている。
+
+- エラーメッセージを返す
+- 元のエラーを保持する
+
+`errorHandler.go`では、次の観点をテストしている。
+
+- 想定外のエラーを共通エラーへ変換する
+- エラー原因の詳細をレスポンスへ含めない
+- エラー種別に応じたHTTPステータスコードを返す
+
+`errorcode.go`では、次の観点をテストしている。
+
+- エラーコード・メッセージ・元のエラーを共通エラーへまとめる
+
+### カバレッジ結果
+
+| ファイル        | 関数            | カバレッジ |
+| --------------- | --------------- | ---------: |
+| error.go        | Error           |     100.0% |
+|                 | Unwrap          |     100.0% |
+| errorHandler.go | ErrorHandler    |     100.0% |
+|                 | statusCodeFor   |     100.0% |
+| errorcode.go    | Wrap            |     100.0% |
+| 合計            | -               |     100.0% |
+
+計測コマンド：
+
+```bash
+cd backend
+go test ./internal/apperrors -coverprofile=/tmp/apperrors-cover.out
+go tool cover -func=/tmp/apperrors-cover.out
+```
+
 ## DB管理処理テスト
 
 DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポートフォワード時の接続先差し替えを検証する。
