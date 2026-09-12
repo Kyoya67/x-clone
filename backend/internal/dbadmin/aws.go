@@ -10,6 +10,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
+type rdsClient interface {
+	DescribeDBInstances(context.Context, *rds.DescribeDBInstancesInput, ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
+}
+
+type secretsManagerClient interface {
+	DescribeSecret(context.Context, *secretsmanager.DescribeSecretInput, ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error)
+	GetSecretValue(context.Context, *secretsmanager.GetSecretValueInput, ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+	PutSecretValue(context.Context, *secretsmanager.PutSecretValueInput, ...func(*secretsmanager.Options)) (*secretsmanager.PutSecretValueOutput, error)
+}
+
+var (
+	newRDSClient            = func(cfg aws.Config) rdsClient { return rds.NewFromConfig(cfg) }
+	newSecretsManagerClient = func(cfg aws.Config) secretsManagerClient { return secretsmanager.NewFromConfig(cfg) }
+)
+
 func awsConfig(ctx context.Context) (aws.Config, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -24,7 +39,7 @@ func GetRDSEndpoint(ctx context.Context, instance string) (RDSEndpoint, error) {
 	if err != nil {
 		return rdsEndpoint, err
 	}
-	out, err := rds.NewFromConfig(cfg).DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{
+	out, err := newRDSClient(cfg).DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{
 		DBInstanceIdentifier: aws.String(instance),
 	})
 	if err != nil || len(out.DBInstances) == 0 || out.DBInstances[0].Endpoint == nil {
@@ -45,7 +60,7 @@ func CurrentSecretVersionExists(ctx context.Context, secretID string) (bool, err
 	if err != nil {
 		return false, err
 	}
-	out, err := secretsmanager.NewFromConfig(cfg).DescribeSecret(ctx, &secretsmanager.DescribeSecretInput{
+	out, err := newSecretsManagerClient(cfg).DescribeSecret(ctx, &secretsmanager.DescribeSecretInput{
 		SecretId: aws.String(secretID),
 	})
 	if err != nil {
@@ -66,7 +81,7 @@ func GetSecretString(ctx context.Context, secretID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := secretsmanager.NewFromConfig(cfg).GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+	out, err := newSecretsManagerClient(cfg).GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
 	})
 	if err != nil || out.SecretString == nil {
@@ -80,7 +95,7 @@ func PutSecretString(ctx context.Context, secretID, secretString string) error {
 	if err != nil {
 		return err
 	}
-	_, err = secretsmanager.NewFromConfig(cfg).PutSecretValue(ctx, &secretsmanager.PutSecretValueInput{
+	_, err = newSecretsManagerClient(cfg).PutSecretValue(ctx, &secretsmanager.PutSecretValueInput{
 		SecretId:     aws.String(secretID),
 		SecretString: aws.String(secretString),
 	})

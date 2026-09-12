@@ -23,12 +23,12 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 
 constructorはテスト対象に含めない。constructorは依存関係を構造体へ設定するだけで、独立した振る舞いを持たないためである。
 
-| 対象               | 関数               | カバレッジ |
-| ------------------ | ------------------ | ---------: |
-| PostController     | `Create`           |     100.0% |
-| FollowController   | `Follow`           |     100.0% |
-| FollowController   | `Unfollow`         |     100.0% |
-| FollowController   | `ListFollowing`    |    未再計測 |
+| 対象             | 関数            | カバレッジ |
+| ---------------- | --------------- | ---------: |
+| PostController   | `Create`        |     100.0% |
+| FollowController | `Follow`        |     100.0% |
+| FollowController | `Unfollow`      |     100.0% |
+| FollowController | `ListFollowing` |   未再計測 |
 
 計測コマンド：
 
@@ -57,12 +57,12 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 
 ### カバレッジ結果
 
-| 対象             | 関数               | カバレッジ |
-| ---------------- | ------------------ | ---------: |
-| PostService      | `Create`           |     100.0% |
-| FollowService    | `Follow`           |     100.0% |
-| FollowService    | `Unfollow`         |     100.0% |
-| FollowService    | `ListFolloweeIDs`  |    未再計測 |
+| 対象          | 関数              | カバレッジ |
+| ------------- | ----------------- | ---------: |
+| PostService   | `Create`          |     100.0% |
+| FollowService | `Follow`          |     100.0% |
+| FollowService | `Unfollow`        |     100.0% |
+| FollowService | `ListFolloweeIDs` |   未再計測 |
 
 計測コマンド：
 
@@ -99,7 +99,7 @@ constructorはテスト対象に含めない。
 | PostgreSQL error classification | `classifyPostgresError` |     100.0% |
 | FollowRepository                | `Follow`                |     100.0% |
 | FollowRepository                | `Unfollow`              |     100.0% |
-| FollowRepository                | `ListFolloweeIDs`       |    未再計測 |
+| FollowRepository                | `ListFolloweeIDs`       |   未再計測 |
 
 計測コマンド：
 
@@ -107,6 +107,53 @@ constructorはテスト対象に含めない。
 cd backend
 go test ./internal/repositories -run '^(TestPostRepository|TestFollowRepository|TestClassifyPostgresError)' -coverprofile=/tmp/repository-cover.out
 go tool cover -func=/tmp/repository-cover.out | grep -E 'post|follow'
+```
+
+## DB管理処理テスト
+
+DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポートフォワード時の接続先差し替えを検証する。
+
+`admin.go`では、次の観点をテストしている。
+
+- 明示した管理者Secretを使ってRDS接続情報を組み立てる
+- 管理者Secretが未指定の場合はエラーにする
+- 管理者Secretのユーザー名が`dbadmin`でない場合は拒否する
+
+`aws.go`では、次の観点をテストしている。
+
+- RDSインスタンスから接続先ホスト名とポートを取得する
+- Secrets Managerに`AWSCURRENT`のバージョンが存在するか判定する
+- Secretの文字列を取得する
+- Secretの文字列を保存する
+- AWS SDKのエラー詳細をそのまま外へ出さない
+
+`tunnel.go`では、次の観点をテストしている。
+
+- SSMポートフォワード時もTLS検証先としてRDSホスト名を維持する
+- 接続先の差し替えはloopback IPと有効なportだけ許可する
+- ローカル転送先が未指定なら通常のRDS接続設定を維持する
+
+### カバレッジ結果
+
+| ファイル    | 関数                         | カバレッジ |
+| ----------- | ---------------------------- | ---------: |
+| `admin.go`  | `ConnectionURL`              |       0.0% |
+| `admin.go`  | `OpenAdministrator`          |      50.0% |
+| `aws.go`    | `awsConfig`                  |      75.0% |
+| `aws.go`    | `GetRDSEndpoint`             |      92.3% |
+| `aws.go`    | `CurrentSecretVersionExists` |      81.8% |
+| `aws.go`    | `GetSecretString`            |      71.4% |
+| `aws.go`    | `PutSecretString`            |      71.4% |
+| `tunnel.go` | `OpenDatabase`               |       0.0% |
+| `tunnel.go` | `configureLocalForward`      |      86.7% |
+| 合計        | -                            |      64.8% |
+
+計測コマンド：
+
+```bash
+cd backend
+go test ./internal/dbadmin -coverprofile=/tmp/dbadmin-cover.out
+go tool cover -func=/tmp/dbadmin-cover.out
 ```
 
 ## テストの実行
