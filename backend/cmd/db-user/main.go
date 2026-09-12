@@ -1,4 +1,3 @@
-// db-user is an operator command, not part of the HTTP server or its IAM role.
 package main
 
 import (
@@ -17,6 +16,11 @@ import (
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
 )
 
+type credentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func main() {
 	instance := flag.String("instance", "app-db", "RDS instance identifier")
 	adminSecretID := flag.String("admin-secret", "db/dbadmin", "Administrator username/password secret")
@@ -32,7 +36,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	if err := run(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *localForwardEndpoint, *adminSecretID); err != nil {
-		// Never print SQL/driver/CLI errors, which can contain credentials.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -48,7 +51,6 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 		return err
 	}
 	defer db.Close()
-	// Serialize cooperating operators, including secret retrieval/publication.
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.New("cannot start database transaction")
@@ -70,50 +72,50 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 	return nil
 }
 
-// 両ユーザーで認証情報の取得・再利用・保存を共通化する。
+// DBユーザーのセットアップを行う。既存のシークレットがある場合は、それを利用して接続確認を行い、必要に応じてパスワードを設定する。
 func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint, secretID, caFile, localForwardEndpoint, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
 	hasCurrentSecret, err := dbadmin.CurrentSecretVersionExists(ctx, secretID)
 	if err != nil {
 		return err
 	}
-	existingSecretString := ""
+	existingSecretPassword := ""
 	if hasCurrentSecret {
-		existingSecretString, err = dbadmin.GetSecretString(ctx, secretID)
+		existingSecretPassword, err = dbadmin.GetSecretString(ctx, secretID)
 		if err != nil {
 			return err
 		}
-		if existingSecretString == "" {
+		if existingSecretPassword == "" {
 			return errors.New("database user secret is empty")
 		}
 	}
-	password, err := databaseUserPassword(existingSecretString, role)
+	password, err := databaseUserPassword(existingSecretPassword, role)
 	if err != nil {
 		return err
 	}
-	// Existing credentials must authenticate; never silently reset a password.
 	var roleExists bool
 	if err := tx.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role).Scan(&roleExists); err != nil {
 		return errors.New("cannot inspect database role")
 	}
-	if roleExists && existingSecretString != "" {
+	// もしRDSにDBユーザーが存在し、既存のシークレットがある場合は、その認証情報で接続できるか確認する
+	if roleExists && existingSecretPassword != "" {
 		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(rdsEndpoint.Host, rdsEndpoint.Port, role, password, caFile), localForwardEndpoint)
 		if err != nil {
 			return errors.New("cannot initialize database connection")
 		}
 		defer appDB.Close()
+		// AWSコンソール上からsecrets managerでパスワードを変更すると既存の認証情報で接続できなくなる。
 		if err := appDB.PingContext(ctx); err != nil {
 			return errors.New("saved database credentials cannot connect; refusing to change password")
 		}
 	}
-	if err := configure(ctx, tx, password, existingSecretString != ""); err != nil {
+	if err := configure(ctx, tx, password, existingSecretPassword != ""); err != nil {
 		return err
 	}
 	secretJSON, err := json.Marshal(credentials{Username: role, Password: password})
 	if err != nil {
 		return errors.New("cannot encode database credentials")
 	}
-	if existingSecretString == "" {
-		// Publish before commit. If commit fails, retry reuses the saved password.
+	if existingSecretPassword == "" {
 		if err := dbadmin.PutSecretString(ctx, secretID, string(secretJSON)); err != nil {
 			return err
 		}
@@ -121,15 +123,10 @@ func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint,
 	return nil
 }
 
-type credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-func databaseUserPassword(existing, role string) (string, error) {
-	if existing != "" {
+func databaseUserPassword(existingSecretPassword, role string) (string, error) {
+	if existingSecretPassword != "" {
 		var saved credentials
-		if err := json.Unmarshal([]byte(existing), &saved); err != nil || saved.Username != role || saved.Password == "" {
+		if err := json.Unmarshal([]byte(existingSecretPassword), &saved); err != nil || saved.Username != role || saved.Password == "" {
 			return "", errors.New("invalid database credentials; refusing to overwrite")
 		}
 		return saved.Password, nil
@@ -141,7 +138,6 @@ func databaseUserPassword(existing, role string) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// roleは固定のユーザー名だけを許可し、SQL識別子として安全に使う。
 func createRole(ctx context.Context, tx *sql.Tx, role, password string, hasSecret bool) error {
 	if role != "app_user" && role != "migration_user" {
 		return errors.New("unsupported database role")
@@ -154,8 +150,7 @@ func createRole(ctx context.Context, tx *sql.Tx, role, password string, hasSecre
 		return errors.New("database role exists without a saved secret; refusing to change its password")
 	}
 	if !exists {
-		// PostgreSQL utility statements do not accept password bind parameters.
-		// E-string escaping also handles existing passwords on recovery runs.
+		// 最小権限でDBロールを作成する
 		literal := strings.ReplaceAll(strings.ReplaceAll(password, "\\", "\\\\"), "'", "''")
 		if _, err := tx.ExecContext(ctx, "CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD E'"+literal+"'"); err != nil {
 			return errors.New("cannot create database role")
@@ -174,7 +169,7 @@ func configureAppRole(ctx context.Context, tx *sql.Tx, password string, hasSecre
 	if _, err := tx.ExecContext(ctx, "GRANT USAGE ON SCHEMA public TO app_user"); err != nil {
 		return errors.New("cannot grant schema access")
 	}
-	// Explicit tables only: do not grant access to schema_migrations or future tables.
+	// 今存在するテーブルに対してのみ権限を付与する
 	for _, table := range []string{"users", "posts", "follows"} {
 		var present bool
 		if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&present); err != nil {
@@ -200,12 +195,9 @@ func configureMigrationRole(ctx context.Context, tx *sql.Tx, password string, ha
 	if _, err := tx.ExecContext(ctx, "GRANT USAGE, CREATE ON SCHEMA public TO migration_user"); err != nil {
 		return errors.New("cannot grant migration schema access")
 	}
-	// 所有権変更に必要なSET ROLEと、変更後の管理・再実行をdbadminに許可する。
-	// 逆方向（migration_userへの管理者権限付与）ではない。
 	if _, err := tx.ExecContext(ctx, "GRANT migration_user TO dbadmin WITH INHERIT TRUE, SET TRUE"); err != nil {
 		return errors.New("cannot grant administrator membership in migration role")
 	}
-	// 初回SQLが必要とする拡張は管理者が準備し、migration_userへDB全体のCREATEは与えない。
 	if _, err := tx.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pgcrypto"); err != nil {
 		return errors.New("cannot prepare migration extension")
 	}
@@ -213,7 +205,6 @@ func configureMigrationRole(ctx context.Context, tx *sql.Tx, password string, ha
 }
 
 func transferMigrationTables(ctx context.Context, tx *sql.Tx) error {
-	// DB全体のREASSIGN OWNEDは使わず、このアプリの4テーブルだけを対象にする。
 	for _, table := range []string{"users", "posts", "follows", "schema_migrations"} {
 		var present bool
 		if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&present); err != nil {

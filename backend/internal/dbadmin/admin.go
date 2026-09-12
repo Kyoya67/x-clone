@@ -11,13 +11,6 @@ import (
 	"strconv"
 )
 
-func ConnectionURL(host string, port int, user, password, ca string) string {
-	u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/app", User: url.UserPassword(user, password)}
-	q := url.Values{"sslmode": {"verify-full"}, "sslrootcert": {ca}, "connect_timeout": {"10"}}
-	u.RawQuery = q.Encode()
-	return u.String()
-}
-
 type RDSEndpoint struct {
 	Host string
 	Port int
@@ -28,7 +21,13 @@ var (
 	getSecretString = GetSecretString
 )
 
-// OpenAdministrator reads dbadmin credentials into memory and connects to RDS.
+func ConnectionURL(host string, port int, user, password, ca string) string {
+	u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/app", User: url.UserPassword(user, password)}
+	q := url.Values{"sslmode": {"verify-full"}, "sslrootcert": {ca}, "connect_timeout": {"10"}}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 func OpenAdministrator(ctx context.Context, instance, adminSecretID, caFile, localForwardEndpoint string) (*sql.DB, RDSEndpoint, error) {
 	var rdsEndpoint RDSEndpoint
 	if adminSecretID == "" {
