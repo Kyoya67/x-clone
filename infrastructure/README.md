@@ -16,20 +16,20 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 | AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
 | ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
-| ECS：api          | api | APIサーバー               | nat-instance SGからTCP 8080（手動API確認）                                                                      | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
-| ECS：db-migrator  | db-migrator | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
-| RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                 | なし（許可済み接続への応答は可能）    |
+| ECS：api          | api                    | APIサーバー               | nat-instance SGからTCP 8080（手動API確認）                                                                      | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
 
 ## 3. IAMユーザー・ロール・ポリシー
 
-| 利用者・AWSリソース | IAMユーザー／ロール名                  | 用途                                     | アタッチする権限ポリシー                   | 許可する操作・対象                                                                                   |
-| ------------------- | -------------------------------------- | ---------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| 開発者PC            | x-clone-terraform-stg（IAMユーザー）   | Terraform・AWS CLI・DB管理コマンドの実行 | AdministratorAccess（AWS管理）             | 全AWS操作・全リソース（ポリシー上の許可。SCP等の制約は未確認）                                       |
-| ECS：api            | api-task-execution（実行ロール）   | ECS基盤によるコンテナ起動・ログ送信      | api-task-execution（カスタマー管理）   | ECR apiのイメージ取得<br>/ecs/backendへのログ送信<br>db/app_userのSecret取得                         |
-| ECS：api            | api-task（タスクロール）           | APIプログラムのAWS操作用                 | なし                                       | AWS操作権限なし。DBの読み書きはapp_userのSQL権限                                                     |
+| 利用者・AWSリソース | IAMユーザー／ロール名                    | 用途                                     | アタッチする権限ポリシー                     | 許可する操作・対象                                                                                   |
+| ------------------- | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 開発者PC            | x-clone-terraform-stg（IAMユーザー）     | Terraform・AWS CLI・DB管理コマンドの実行 | AdministratorAccess（AWS管理）               | 全AWS操作・全リソース（ポリシー上の許可。SCP等の制約は未確認）                                       |
+| ECS：api            | api-task-execution（実行ロール）         | ECS基盤によるコンテナ起動・ログ送信      | api-task-execution（カスタマー管理）         | ECR apiのイメージ取得<br>/ecs/backendへのログ送信<br>db/app_userのSecret取得                         |
+| ECS：api            | api-task（タスクロール）                 | APIプログラムのAWS操作用                 | なし                                         | AWS操作権限なし。DBの読み書きはapp_userのSQL権限                                                     |
 | ECS：db-migrator    | db-migrator-task-execution（実行ロール） | ECS基盤によるコンテナ起動・ログ送信      | db-migrator-task-execution（カスタマー管理） | ECR db-migratorのイメージ取得<br>/ecs/backend-migrationへのログ送信<br>db/migration_userのSecret取得 |
-| ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                       | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
-| EC2：nat-instance   | nat-ssm（ロール）                      | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）    | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
+| ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
+| EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
 
 ## 4. DBユーザー・Secret・実行場所の関係
 
@@ -122,16 +122,28 @@ app_userを使うのはAPI。利用者はHTTPでAPIを操作し、RDSへ直接�
 
 ## 5. 管理・実行経路
 
-| 処理                 | 実行場所・入口                                                 | 接続先・役割                                                                                   |
-| -------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| インフラ変更         | 開発者PC / Terraform                                           | 作業用IAMユーザーでAWS API、StateはS3                                                          |
-| DBトンネル           | 開発者PC / [db-tunnel.sh](../backend/scripts/db-tunnel.sh)     | PCの15432 → SSM → NAT → RDSの5432                                                              |
-| DBユーザー管理       | 開発者PC / [cmd/db-user](../backend/cmd/db-user/main.go)       | AWS CLIでSecret操作、SSMトンネル経由でdbadminとしてSQL実行し、必要なDBユーザーを作成・権限付与 |
-| マイグレーション起動 | 開発者PC / [ecs-migrate.sh](../backend/scripts/ecs-migrate.sh) | AWS CLIでRunTask。タスクからRDSへ直接接続するためSSM不要                                       |
-| SQLマイグレーション  | ECS / [cmd/migrate-rds](../backend/cmd/migrate-rds/main.go)    | migration_userで実行、終了コードを起動スクリプトが確認                                         |
-| API                  | ECSサービス / [cmd/api](../backend/cmd/api/main.go)            | app_userでRDSへ接続してHTTPサーバー起動                                                        |
+### SSMポートフォワード
 
-APIは起動時にDBへPingする。ECSの自動healthチェックは30秒ごとにコンテナ内の/app/healthcheckからGET /healthを呼び、200なら成功。これはHTTPの生存確認で、継続的なDB疎通・SQLの読み書き権限を保証しない。
+```mermaid
+flowchart LR
+  CMD["開発者PC<br/>cmd/db-user"]
+  LOOP["開発者PC<br/>127.0.0.1:15432"]
+  SSM["SSM Session Manager"]
+  NAT["EC2<br/>nat-instance"]
+  RDS["RDS<br/>app-db:5432"]
+  TLS["TLS検証<br/>RDSホスト名 + RDS CA"]
+
+  CMD -->|"TCP接続先を差し替え"| LOOP
+  LOOP -->|"SSMで転送"| SSM
+  SSM --> NAT
+  NAT --> RDS
+  CMD -.->|"証明書の名前確認は<br/>RDSホスト名で行う"| TLS
+  TLS -.-> RDS
+```
+
+`cmd/db-user`は、RDSへ直接接続せず、ローカルの`127.0.0.1:15432`へ接続する。その通信をSSMがnat-instance経由でRDSへ転送する。
+
+接続先の差し替えとTLS検証の詳細は、[DBトンネル接続](../backend/docs/db-tunnel.md)を参照。
 
 ## 6. 残りの対応
 
