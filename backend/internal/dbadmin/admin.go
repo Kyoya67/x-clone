@@ -29,38 +29,38 @@ var (
 )
 
 // OpenAdministrator reads dbadmin credentials into memory and connects to RDS.
-func OpenAdministrator(ctx context.Context, instance, adminSecretID, caFile, tunnel string) (*sql.DB, RDSEndpoint, error) {
-	var endpoint RDSEndpoint
+func OpenAdministrator(ctx context.Context, instance, adminSecretID, caFile, localForwardEndpoint string) (*sql.DB, RDSEndpoint, error) {
+	var rdsEndpoint RDSEndpoint
 	if adminSecretID == "" {
-		return nil, endpoint, errors.New("administrator secret is required")
+		return nil, rdsEndpoint, errors.New("administrator secret is required")
 	}
 	if _, err := os.Stat(caFile); err != nil {
-		return nil, endpoint, errors.New("cannot read RDS CA file")
+		return nil, rdsEndpoint, errors.New("cannot read RDS CA file")
 	}
-	endpoint, err := getRDSEndpoint(ctx, instance)
+	rdsEndpoint, err := getRDSEndpoint(ctx, instance)
 	if err != nil {
-		return nil, endpoint, err
+		return nil, rdsEndpoint, err
 	}
-	if endpoint.Host == "" || endpoint.Port == 0 {
-		return nil, endpoint, errors.New("RDS endpoint is missing")
+	if rdsEndpoint.Host == "" || rdsEndpoint.Port == 0 {
+		return nil, rdsEndpoint, errors.New("RDS endpoint is missing")
 	}
 	adminSecret, err := getSecretString(ctx, adminSecretID)
 	if err != nil {
-		return nil, endpoint, err
+		return nil, rdsEndpoint, err
 	}
 	var admin struct{ Username, Password string }
 	if json.Unmarshal([]byte(adminSecret), &admin) != nil || admin.Username != "dbadmin" || admin.Password == "" {
-		return nil, endpoint, errors.New("invalid administrator secret")
+		return nil, rdsEndpoint, errors.New("invalid administrator secret")
 	}
-	adminURL := ConnectionURL(endpoint.Host, endpoint.Port, admin.Username, admin.Password, caFile)
-	db, err := OpenDatabase(adminURL, tunnel)
+	adminURL := ConnectionURL(rdsEndpoint.Host, rdsEndpoint.Port, admin.Username, admin.Password, caFile)
+	db, err := OpenDatabase(adminURL, localForwardEndpoint)
 	if err != nil {
-		return nil, endpoint, errors.New("cannot initialize database connection")
+		return nil, rdsEndpoint, errors.New("cannot initialize database connection")
 	}
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
-		return nil, endpoint, errors.New("database connection failed; check VPC connectivity, CA and administrator credentials")
+		return nil, rdsEndpoint, errors.New("database connection failed; check VPC connectivity, CA and administrator credentials")
 	}
 
-	return db, endpoint, nil
+	return db, rdsEndpoint, nil
 }

@@ -21,21 +21,21 @@ func TestOpenAdministratorUsesExplicitSecretWithoutRDSManagedSecret(t *testing.T
 		`{"username":"wrong-user","password":"test-only-password"}`,
 	)
 	defer restoreAWS()
-	db, endpoint, err := OpenAdministrator(context.Background(), "app-db", secretID, caFile, "")
+	db, rdsEndpoint, err := OpenAdministrator(context.Background(), "app-db", secretID, caFile, "")
 	if db != nil || err == nil || err.Error() != "invalid administrator secret" {
 		t.Fatalf("expected validation of the explicit secret, got %v", err)
 	}
-	if endpoint.Host != "db.example" || endpoint.Port != 5432 {
+	if rdsEndpoint.Host != "db.example" || rdsEndpoint.Port != 5432 {
 		t.Fatal("expected endpoint from RDS")
 	}
 }
 
-func stubAWSForOpenAdministrator(t *testing.T, endpoint RDSEndpoint, expectedSecretID, secret string) func() {
+func stubAWSForOpenAdministrator(t *testing.T, rdsEndpoint RDSEndpoint, expectedSecretID, secret string) func() {
 	t.Helper()
 	originalEndpoint := getRDSEndpoint
 	originalSecret := getSecretString
 	getRDSEndpoint = func(context.Context, string) (RDSEndpoint, error) {
-		return endpoint, nil
+		return rdsEndpoint, nil
 	}
 	getSecretString = func(_ context.Context, secretID string) (string, error) {
 		if secretID != expectedSecretID {

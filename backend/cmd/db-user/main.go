@@ -26,7 +26,7 @@ func main() {
 	appSecretID := flag.String("secret", "db/app_user", "Application username/password secret")
 	migrationSecretID := flag.String("migration-secret", "db/migration_user", "Migration username/password secret")
 	caFile := flag.String("ca-file", "", "Local RDS CA bundle path (required)")
-	tunnel := flag.String("tunnel", "", "Optional local SSM tunnel endpoint, e.g. 127.0.0.1:15432")
+	localForwardEndpoint := flag.String("local-forward-endpoint", "", "Optional local SSM port forwarding endpoint, e.g. 127.0.0.1:15432")
 	flag.Parse()
 	if *caFile == "" {
 		fmt.Fprintln(os.Stderr, "--ca-file is required")
@@ -34,7 +34,7 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := run(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *tunnel, *adminSecretID); err != nil {
+	if err := run(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *localForwardEndpoint, *adminSecretID); err != nil {
 		// Never print SQL/driver/CLI errors, which can contain credentials.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -42,11 +42,11 @@ func main() {
 	fmt.Println("app_user and migration_user configured; username/password JSON stored in Secrets Manager")
 }
 
-func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, tunnel, adminSecretID string) error {
+func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, localForwardEndpoint, adminSecretID string) error {
 	if appSecretID == migrationSecretID {
 		return errors.New("application and migration secrets must be different")
 	}
-	db, endpoint, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, tunnel)
+	db, rdsEndpoint, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, localForwardEndpoint)
 	if err != nil {
 		return err
 	}
@@ -57,13 +57,14 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 		return errors.New("cannot start database transaction")
 	}
 	defer tx.Rollback()
+	// ロックを取得して、他のオペレーターと競合しないようにする。
 	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(81421001)"); err != nil {
 		return errors.New("cannot acquire setup lock")
 	}
-	if err := setupUser(ctx, tx, endpoint, appSecretID, caFile, tunnel, "app_user", configureRole); err != nil {
+	if err := setupUser(ctx, tx, rdsEndpoint, appSecretID, caFile, localForwardEndpoint, "app_user", configureAppRole); err != nil {
 		return err
 	}
-	if err := setupUser(ctx, tx, endpoint, migrationSecretID, caFile, tunnel, "migration_user", configureMigrationRole); err != nil {
+	if err := setupUser(ctx, tx, rdsEndpoint, migrationSecretID, caFile, localForwardEndpoint, "migration_user", configureMigrationRole); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -73,7 +74,7 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 }
 
 // 両ユーザーで認証情報の取得・再利用・保存を共通化する。
-func setupUser(ctx context.Context, tx *sql.Tx, endpoint dbadmin.RDSEndpoint, secretID, caFile, tunnel, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
+func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint, secretID, caFile, localForwardEndpoint, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
 	hasCurrentSecret, err := dbadmin.CurrentSecretVersionExists(ctx, secretID)
 	if err != nil {
 		return err
@@ -88,7 +89,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, endpoint dbadmin.RDSEndpoint, se
 			return errors.New("database user secret is empty")
 		}
 	}
-	password, err := rolePassword(existingURL, endpoint.Host, endpoint.Port, role)
+	password, err := rolePassword(existingURL, rdsEndpoint.Host, rdsEndpoint.Port, role)
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, endpoint dbadmin.RDSEndpoint, se
 		return errors.New("cannot inspect database role")
 	}
 	if roleExists && existingURL != "" {
-		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(endpoint.Host, endpoint.Port, role, password, caFile), tunnel)
+		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(rdsEndpoint.Host, rdsEndpoint.Port, role, password, caFile), localForwardEndpoint)
 		if err != nil {
 			return errors.New("cannot initialize database connection")
 		}
@@ -155,7 +156,30 @@ func rolePassword(existing, host string, port int, role string) (string, error) 
 	return hex.EncodeToString(b), nil
 }
 
-func configureRole(ctx context.Context, tx *sql.Tx, password string, hasSecret bool) error {
+// roleは固定のユーザー名だけを許可し、SQL識別子として安全に使う。
+func createRole(ctx context.Context, tx *sql.Tx, role, password string, hasSecret bool) error {
+	if role != "app_user" && role != "migration_user" {
+		return errors.New("unsupported database role")
+	}
+	var exists bool
+	if err := tx.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role).Scan(&exists); err != nil {
+		return errors.New("cannot inspect database role")
+	}
+	if exists && !hasSecret {
+		return errors.New("database role exists without a saved secret; refusing to change its password")
+	}
+	if !exists {
+		// PostgreSQL utility statements do not accept password bind parameters.
+		// E-string escaping also handles existing passwords on recovery runs.
+		literal := strings.ReplaceAll(strings.ReplaceAll(password, "\\", "\\\\"), "'", "''")
+		if _, err := tx.ExecContext(ctx, "CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD E'"+literal+"'"); err != nil {
+			return errors.New("cannot create database role")
+		}
+	}
+	return nil
+}
+
+func configureAppRole(ctx context.Context, tx *sql.Tx, password string, hasSecret bool) error {
 	if err := createRole(ctx, tx, "app_user", password, hasSecret); err != nil {
 		return err
 	}
@@ -176,29 +200,6 @@ func configureRole(ctx context.Context, tx *sql.Tx, password string, hasSecret b
 		}
 		if _, err := tx.ExecContext(ctx, "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."+table+" TO app_user"); err != nil {
 			return errors.New("cannot grant table privileges")
-		}
-	}
-	return nil
-}
-
-// roleは固定のユーザー名だけを許可し、SQL識別子として安全に使う。
-func createRole(ctx context.Context, tx *sql.Tx, role, password string, hasSecret bool) error {
-	if role != "app_user" && role != "migration_user" {
-		return errors.New("unsupported database role")
-	}
-	var exists bool
-	if err := tx.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role).Scan(&exists); err != nil {
-		return errors.New("cannot inspect database role")
-	}
-	if exists && !hasSecret {
-		return errors.New("database role exists without a saved secret; refusing to change its password")
-	}
-	if !exists {
-		// PostgreSQL utility statements do not accept password bind parameters.
-		// E-string escaping also handles existing passwords on recovery runs.
-		literal := strings.ReplaceAll(strings.ReplaceAll(password, "\\", "\\\\"), "'", "''")
-		if _, err := tx.ExecContext(ctx, "CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD E'"+literal+"'"); err != nil {
-			return errors.New("cannot create database role")
 		}
 	}
 	return nil
