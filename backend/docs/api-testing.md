@@ -21,14 +21,16 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 
 ### カバレッジ結果
 
-constructorはテスト対象に含めない。constructorは依存関係を構造体へ設定するだけで、独立した振る舞いを持たないためである。
-
-| 対象             | 関数            | カバレッジ |
-| ---------------- | --------------- | ---------: |
-| PostController   | `Create`        |     100.0% |
-| FollowController | `Follow`        |     100.0% |
-| FollowController | `Unfollow`      |     100.0% |
-| FollowController | `ListFollowing` |   未再計測 |
+| ファイル    | 関数                    | カバレッジ |
+| ----------- | ----------------------- | ---------: |
+| `follow.go` | `NewFollowController`   |     100.0% |
+| `follow.go` | `Follow`                |     100.0% |
+| `follow.go` | `Unfollow`              |     100.0% |
+| `follow.go` | `ListFollowing`         |      66.7% |
+| `follow.go` | `handleFollowAction`    |     100.0% |
+| `follow.go` | `followeeIDFromRequest` |     100.0% |
+| `post.go`   | `NewPostController`     |     100.0% |
+| `post.go`   | `Create`                |     100.0% |
 
 計測コマンド：
 
@@ -57,12 +59,15 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 
 ### カバレッジ結果
 
-| 対象          | 関数              | カバレッジ |
-| ------------- | ----------------- | ---------: |
-| PostService   | `Create`          |     100.0% |
-| FollowService | `Follow`          |     100.0% |
-| FollowService | `Unfollow`        |     100.0% |
-| FollowService | `ListFolloweeIDs` |   未再計測 |
+| ファイル    | 関数                     | カバレッジ |
+| ----------- | ------------------------ | ---------: |
+| `follow.go` | `NewFollowService`       |     100.0% |
+| `follow.go` | `Follow`                 |     100.0% |
+| `follow.go` | `Unfollow`               |     100.0% |
+| `follow.go` | `ListFolloweeIDs`        |     100.0% |
+| `follow.go` | `validateFollowRelation` |     100.0% |
+| `post.go`   | `NewPostService`         |     100.0% |
+| `post.go`   | `Create`                 |     100.0% |
 
 計測コマンド：
 
@@ -91,15 +96,16 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 
 ### カバレッジ結果
 
-constructorはテスト対象に含めない。
-
-| 対象                            | 関数                    | カバレッジ |
-| ------------------------------- | ----------------------- | ---------: |
-| PostRepository                  | `Create`                |     100.0% |
-| PostgreSQL error classification | `classifyPostgresError` |     100.0% |
-| FollowRepository                | `Follow`                |     100.0% |
-| FollowRepository                | `Unfollow`              |     100.0% |
-| FollowRepository                | `ListFolloweeIDs`       |   未再計測 |
+| ファイル        | 関数                    | カバレッジ |
+| --------------- | ----------------------- | ---------: |
+| `follow.go`     | `NewFollowRepository`   |     100.0% |
+| `follow.go`     | `Follow`                |     100.0% |
+| `follow.go`     | `Unfollow`              |     100.0% |
+| `follow.go`     | `ListFolloweeIDs`       |      76.9% |
+| `follow.go`     | `execute`               |     100.0% |
+| `post.go`       | `NewPostRepository`     |     100.0% |
+| `post.go`       | `Create`                |     100.0% |
+| `post_error.go` | `classifyPostgresError` |     100.0% |
 
 計測コマンド：
 
