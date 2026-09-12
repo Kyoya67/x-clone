@@ -24,13 +24,13 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 | ファイル    | 関数                    | カバレッジ |
 | ----------- | ----------------------- | ---------: |
 | `follow.go` | `NewFollowController`   |     100.0% |
-| `follow.go` | `Follow`                |     100.0% |
-| `follow.go` | `Unfollow`              |     100.0% |
-| `follow.go` | `ListFollowing`         |      66.7% |
-| `follow.go` | `handleFollowAction`    |     100.0% |
-| `follow.go` | `followeeIDFromRequest` |     100.0% |
+|             | `Follow`                |     100.0% |
+|             | `Unfollow`              |     100.0% |
+|             | `ListFollowing`         |      66.7% |
+|             | `handleFollowAction`    |     100.0% |
+|             | `followeeIDFromRequest` |     100.0% |
 | `post.go`   | `NewPostController`     |     100.0% |
-| `post.go`   | `Create`                |     100.0% |
+|             | `Create`                |     100.0% |
 
 計測コマンド：
 
@@ -62,12 +62,12 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 | ファイル    | 関数                     | カバレッジ |
 | ----------- | ------------------------ | ---------: |
 | `follow.go` | `NewFollowService`       |     100.0% |
-| `follow.go` | `Follow`                 |     100.0% |
-| `follow.go` | `Unfollow`               |     100.0% |
-| `follow.go` | `ListFolloweeIDs`        |     100.0% |
-| `follow.go` | `validateFollowRelation` |     100.0% |
+|             | `Follow`                 |     100.0% |
+|             | `Unfollow`               |     100.0% |
+|             | `ListFolloweeIDs`        |     100.0% |
+|             | `validateFollowRelation` |     100.0% |
 | `post.go`   | `NewPostService`         |     100.0% |
-| `post.go`   | `Create`                 |     100.0% |
+|             | `Create`                 |     100.0% |
 
 計測コマンド：
 
@@ -99,12 +99,12 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 | ファイル        | 関数                    | カバレッジ |
 | --------------- | ----------------------- | ---------: |
 | `follow.go`     | `NewFollowRepository`   |     100.0% |
-| `follow.go`     | `Follow`                |     100.0% |
-| `follow.go`     | `Unfollow`              |     100.0% |
-| `follow.go`     | `ListFolloweeIDs`       |      76.9% |
-| `follow.go`     | `execute`               |     100.0% |
+|                 | `Follow`                |     100.0% |
+|                 | `Unfollow`              |     100.0% |
+|                 | `ListFolloweeIDs`       |      76.9% |
+|                 | `execute`               |     100.0% |
 | `post.go`       | `NewPostRepository`     |     100.0% |
-| `post.go`       | `Create`                |     100.0% |
+|                 | `Create`                |     100.0% |
 | `post_error.go` | `classifyPostgresError` |     100.0% |
 
 計測コマンド：
@@ -154,14 +154,14 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 | ファイル    | 関数                         | カバレッジ |
 | ----------- | ---------------------------- | ---------: |
 | `admin.go`  | `ConnectionURL`              |     100.0% |
-| `admin.go`  | `OpenAdministrator`          |      83.3% |
+|             | `OpenAdministrator`          |      83.3% |
 | `aws.go`    | `awsConfig`                  |     100.0% |
-| `aws.go`    | `GetRDSEndpoint`             |      92.3% |
-| `aws.go`    | `CurrentSecretVersionExists` |      90.9% |
-| `aws.go`    | `GetSecretString`            |      85.7% |
-| `aws.go`    | `PutSecretString`            |      85.7% |
+|             | `GetRDSEndpoint`             |      92.3% |
+|             | `CurrentSecretVersionExists` |      90.9% |
+|             | `GetSecretString`            |      85.7% |
+|             | `PutSecretString`            |      85.7% |
 | `tunnel.go` | `OpenDatabase`               |     100.0% |
-| `tunnel.go` | `configureLocalForward`      |      93.3% |
+|             | `configureLocalForward`      |      93.3% |
 | 合計        | -                            |      90.1% |
 
 計測コマンド：
