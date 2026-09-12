@@ -22,8 +22,8 @@ import (
 
 func main() {
 	instance := flag.String("instance", "app-db", "RDS instance identifier")
-	adminSecretID := flag.String("admin-secret", "arn:aws:secretsmanager:ap-northeast-1:089244387218:secret:db/dbadmin-pTEXku", "Administrator credentials secret ARN or name")
-	secretID := flag.String("secret", "db/app_user", "Application username/password secret")
+	adminSecretID := flag.String("admin-secret", "db/dbadmin", "Administrator username/password secret")
+	appSecretID := flag.String("secret", "db/app_user", "Application username/password secret")
 	migrationSecretID := flag.String("migration-secret", "db/migration_user", "Migration username/password secret")
 	caFile := flag.String("ca-file", "", "Local RDS CA bundle path (required)")
 	tunnel := flag.String("tunnel", "", "Optional local SSM tunnel endpoint, e.g. 127.0.0.1:15432")
@@ -34,7 +34,7 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := run(ctx, *instance, *secretID, *migrationSecretID, *caFile, *tunnel, *adminSecretID); err != nil {
+	if err := run(ctx, *instance, *appSecretID, *migrationSecretID, *caFile, *tunnel, *adminSecretID); err != nil {
 		// Never print SQL/driver/CLI errors, which can contain credentials.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -42,8 +42,8 @@ func main() {
 	fmt.Println("app_user and migration_user configured; username/password JSON stored in Secrets Manager")
 }
 
-func run(ctx context.Context, instance, secretID, migrationSecretID, caFile, tunnel, adminSecretID string) error {
-	if secretID == migrationSecretID {
+func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, tunnel, adminSecretID string) error {
+	if appSecretID == migrationSecretID {
 		return errors.New("application and migration secrets must be different")
 	}
 	db, metadata, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, tunnel)
@@ -60,7 +60,7 @@ func run(ctx context.Context, instance, secretID, migrationSecretID, caFile, tun
 	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(81421001)"); err != nil {
 		return errors.New("cannot acquire setup lock")
 	}
-	if err := setupUser(ctx, tx, metadata, secretID, caFile, tunnel, "app_user", configureRole); err != nil {
+	if err := setupUser(ctx, tx, metadata, appSecretID, caFile, tunnel, "app_user", configureRole); err != nil {
 		return err
 	}
 	if err := setupUser(ctx, tx, metadata, migrationSecretID, caFile, tunnel, "migration_user", configureMigrationRole); err != nil {
@@ -74,23 +74,18 @@ func run(ctx context.Context, instance, secretID, migrationSecretID, caFile, tun
 
 // 両ユーザーで認証情報の取得・再利用・保存を共通化する。
 func setupUser(ctx context.Context, tx *sql.Tx, metadata dbadmin.Metadata, secretID, caFile, tunnel, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
-	var description struct{ VersionIdsToStages map[string][]string }
-	if err := dbadmin.AWS(ctx, nil, &description, "secretsmanager", "describe-secret", "--secret-id", secretID); err != nil {
+	hasCurrentSecret, err := dbadmin.CurrentSecretVersionExists(ctx, secretID)
+	if err != nil {
 		return err
 	}
 	existingURL := ""
-	for _, stages := range description.VersionIdsToStages {
-		for _, stage := range stages {
-			if stage == "AWSCURRENT" {
-				var value struct{ SecretString string }
-				if err := dbadmin.AWS(ctx, nil, &value, "secretsmanager", "get-secret-value", "--secret-id", secretID); err != nil {
-					return err
-				}
-				existingURL = value.SecretString
-				if existingURL == "" {
-					return errors.New("database user secret is empty")
-				}
-			}
+	if hasCurrentSecret {
+		existingURL, err = dbadmin.GetSecretString(ctx, secretID)
+		if err != nil {
+			return err
+		}
+		if existingURL == "" {
+			return errors.New("database user secret is empty")
 		}
 	}
 	password, err := rolePassword(existingURL, metadata.Host, metadata.Port, role)
@@ -122,8 +117,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, metadata dbadmin.Metadata, secre
 	// 旧URL形式も、認証を確認した同じパスワードでJSON形式へ移行する。
 	if existingURL == "" || strings.HasPrefix(existingURL, "postgres://") {
 		// Publish before commit. If commit fails, retry reuses the saved password.
-		if err := dbadmin.AWS(ctx, map[string]string{"SecretId": secretID, "SecretString": string(secretJSON)}, nil,
-			"secretsmanager", "put-secret-value"); err != nil {
+		if err := dbadmin.PutSecretString(ctx, secretID, string(secretJSON)); err != nil {
 			return err
 		}
 	}
