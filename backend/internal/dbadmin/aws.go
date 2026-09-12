@@ -18,26 +18,26 @@ func awsConfig(ctx context.Context) (aws.Config, error) {
 	return cfg, nil
 }
 
-func GetRDSEndpoint(ctx context.Context, instance string) (Metadata, error) {
-	var metadata Metadata
+func GetRDSEndpoint(ctx context.Context, instance string) (RDSEndpoint, error) {
+	var endpoint RDSEndpoint
 	cfg, err := awsConfig(ctx)
 	if err != nil {
-		return metadata, err
+		return endpoint, err
 	}
 	out, err := rds.NewFromConfig(cfg).DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{
 		DBInstanceIdentifier: aws.String(instance),
 	})
 	if err != nil || len(out.DBInstances) == 0 || out.DBInstances[0].Endpoint == nil {
-		return metadata, errors.New("AWS request failed; check operator credentials, region and permissions")
+		return endpoint, errors.New("AWS request failed; check operator credentials, region and permissions")
 	}
-	endpoint := out.DBInstances[0].Endpoint
-	if endpoint.Address != nil {
-		metadata.Host = *endpoint.Address
+	rdsEndpoint := out.DBInstances[0].Endpoint
+	if rdsEndpoint.Address != nil {
+		endpoint.Host = *rdsEndpoint.Address
 	}
-	if endpoint.Port != nil {
-		metadata.Port = int(*endpoint.Port)
+	if rdsEndpoint.Port != nil {
+		endpoint.Port = int(*rdsEndpoint.Port)
 	}
-	return metadata, nil
+	return endpoint, nil
 }
 
 func CurrentSecretVersionExists(ctx context.Context, secretID string) (bool, error) {

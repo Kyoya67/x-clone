@@ -46,7 +46,7 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 	if appSecretID == migrationSecretID {
 		return errors.New("application and migration secrets must be different")
 	}
-	db, metadata, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, tunnel)
+	db, endpoint, err := dbadmin.OpenAdministrator(ctx, instance, adminSecretID, caFile, tunnel)
 	if err != nil {
 		return err
 	}
@@ -60,10 +60,10 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(81421001)"); err != nil {
 		return errors.New("cannot acquire setup lock")
 	}
-	if err := setupUser(ctx, tx, metadata, appSecretID, caFile, tunnel, "app_user", configureRole); err != nil {
+	if err := setupUser(ctx, tx, endpoint, appSecretID, caFile, tunnel, "app_user", configureRole); err != nil {
 		return err
 	}
-	if err := setupUser(ctx, tx, metadata, migrationSecretID, caFile, tunnel, "migration_user", configureMigrationRole); err != nil {
+	if err := setupUser(ctx, tx, endpoint, migrationSecretID, caFile, tunnel, "migration_user", configureMigrationRole); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -73,7 +73,7 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 }
 
 // 両ユーザーで認証情報の取得・再利用・保存を共通化する。
-func setupUser(ctx context.Context, tx *sql.Tx, metadata dbadmin.Metadata, secretID, caFile, tunnel, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
+func setupUser(ctx context.Context, tx *sql.Tx, endpoint dbadmin.RDSEndpoint, secretID, caFile, tunnel, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
 	hasCurrentSecret, err := dbadmin.CurrentSecretVersionExists(ctx, secretID)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, metadata dbadmin.Metadata, secre
 			return errors.New("database user secret is empty")
 		}
 	}
-	password, err := rolePassword(existingURL, metadata.Host, metadata.Port, role)
+	password, err := rolePassword(existingURL, endpoint.Host, endpoint.Port, role)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func setupUser(ctx context.Context, tx *sql.Tx, metadata dbadmin.Metadata, secre
 		return errors.New("cannot inspect database role")
 	}
 	if roleExists && existingURL != "" {
-		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(metadata.Host, metadata.Port, role, password, caFile), tunnel)
+		appDB, err := dbadmin.OpenDatabase(dbadmin.ConnectionURL(endpoint.Host, endpoint.Port, role, password, caFile), tunnel)
 		if err != nil {
 			return errors.New("cannot initialize database connection")
 		}
