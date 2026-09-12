@@ -7,6 +7,31 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func TestOpenDatabaseReturnsDatabaseWithoutConnecting(t *testing.T) {
+	db, err := OpenDatabase("postgres://app_user:test@db.example:5432/app?sslmode=verify-full", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if db == nil {
+		t.Fatal("expected database handle")
+	}
+}
+
+func TestOpenDatabaseRejectsInvalidDatabaseURL(t *testing.T) {
+	db, err := OpenDatabase("://invalid-url", "")
+	if db != nil || err == nil || err.Error() != "invalid database configuration" {
+		t.Fatalf("unexpected result: db=%v err=%v", db, err)
+	}
+}
+
+func TestOpenDatabaseRejectsInvalidLocalForwardEndpoint(t *testing.T) {
+	db, err := OpenDatabase("postgres://app_user:test@db.example:5432/app?sslmode=verify-full", "203.0.113.1:15432")
+	if db != nil || err == nil || err.Error() != "local forward endpoint must be a loopback IP and valid port" {
+		t.Fatalf("unexpected result: db=%v err=%v", db, err)
+	}
+}
+
 func TestTunnelPreservesRDSCertificateVerification(t *testing.T) {
 	config, err := pgx.ParseConfig("postgres://app_user:test@db.example:5432/app?sslmode=verify-full")
 	if err != nil {
@@ -41,6 +66,26 @@ func TestTunnelRejectsInvalidPort(t *testing.T) {
 	}
 	if configureLocalForward(config, "127.0.0.1:0") == nil {
 		t.Fatal("invalid port accepted")
+	}
+}
+
+func TestTunnelRejectsMissingPort(t *testing.T) {
+	config, err := pgx.ParseConfig("postgres://app_user:test@db.example/app?sslmode=verify-full")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := configureLocalForward(config, "127.0.0.1"); err == nil || err.Error() != "local forward endpoint must be a loopback IP and port" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTunnelRejectsNonNumericPort(t *testing.T) {
+	config, err := pgx.ParseConfig("postgres://app_user:test@db.example/app?sslmode=verify-full")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := configureLocalForward(config, "127.0.0.1:postgres"); err == nil || err.Error() != "local forward endpoint must be a loopback IP and valid port" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

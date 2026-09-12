@@ -115,13 +115,20 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 
 `admin.go`では、次の観点をテストしている。
 
+- PostgreSQL接続URLを組み立てる
 - 明示した管理者Secretを使ってRDS接続情報を組み立てる
 - 管理者Secretが未指定の場合はエラーにする
+- RDS CAファイルが読めない場合はエラーにする
+- RDS接続情報や管理者Secretの取得に失敗した場合はエラーにする
 - 管理者Secretのユーザー名が`dbadmin`でない場合は拒否する
+- 管理者Secretのパスワードが空の場合は拒否する
+- 不正なローカル転送先を指定した場合はDB接続初期化エラーにする
 
 `aws.go`では、次の観点をテストしている。
 
+- AWS SDK設定の読み込み失敗を共通エラーにする
 - RDSインスタンスから接続先ホスト名とポートを取得する
+- RDSインスタンスのendpointが取得できない場合は共通エラーにする
 - Secrets Managerに`AWSCURRENT`のバージョンが存在するか判定する
 - Secretの文字列を取得する
 - Secretの文字列を保存する
@@ -129,24 +136,27 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 
 `tunnel.go`では、次の観点をテストしている。
 
+- 実DBへ接続せずにDB接続ハンドルを作成する
+- 不正なDB接続URLを拒否する
 - SSMポートフォワード時もTLS検証先としてRDSホスト名を維持する
 - 接続先の差し替えはloopback IPと有効なportだけ許可する
+- portが無い・数値でないローカル転送先を拒否する
 - ローカル転送先が未指定なら通常のRDS接続設定を維持する
 
 ### カバレッジ結果
 
 | ファイル    | 関数                         | カバレッジ |
 | ----------- | ---------------------------- | ---------: |
-| `admin.go`  | `ConnectionURL`              |       0.0% |
-| `admin.go`  | `OpenAdministrator`          |      50.0% |
-| `aws.go`    | `awsConfig`                  |      75.0% |
+| `admin.go`  | `ConnectionURL`              |     100.0% |
+| `admin.go`  | `OpenAdministrator`          |      83.3% |
+| `aws.go`    | `awsConfig`                  |     100.0% |
 | `aws.go`    | `GetRDSEndpoint`             |      92.3% |
-| `aws.go`    | `CurrentSecretVersionExists` |      81.8% |
-| `aws.go`    | `GetSecretString`            |      71.4% |
-| `aws.go`    | `PutSecretString`            |      71.4% |
-| `tunnel.go` | `OpenDatabase`               |       0.0% |
-| `tunnel.go` | `configureLocalForward`      |      86.7% |
-| 合計        | -                            |      64.8% |
+| `aws.go`    | `CurrentSecretVersionExists` |      90.9% |
+| `aws.go`    | `GetSecretString`            |      85.7% |
+| `aws.go`    | `PutSecretString`            |      85.7% |
+| `tunnel.go` | `OpenDatabase`               |     100.0% |
+| `tunnel.go` | `configureLocalForward`      |      93.3% |
+| 合計        | -                            |      90.1% |
 
 計測コマンド：
 
