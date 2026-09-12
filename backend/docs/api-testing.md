@@ -4,13 +4,13 @@
 
 Controllerの依存先はFakeへ差し替え、HTTPリクエストに対するレスポンスを検証する。
 
-投稿Controllerでは、次の観点をテストしている。
+`post.go`では、次の観点をテストしている。
 
 - 正常なリクエストで`201 Created`と投稿データを返す
 - Serviceが返した内部エラーを`500 Internal Server Error`へ変換する
 - DBなどの内部エラーの詳細をレスポンスへ含めない
 
-フォローControllerでは、次の観点をテストしている。
+`follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除で`204 No Content`を返す
 - URLの`userId`をServiceへ渡す
@@ -44,14 +44,14 @@ go tool cover -func=/tmp/controller-cover.out | grep -E 'post.go|follow.go'
 
 Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼び出しを検証する。
 
-投稿Serviceでは、次の観点をテストしている。
+`post.go`では、次の観点をテストしている。
 
 - 投稿内容の前後の空白を除去してrepositoryへ渡す
 - 1文字未満の投稿を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
 - フォロー中ユーザーIDの取得をrepositoryへ委譲する
 
-フォローServiceでは、次の観点をテストしている。
+`follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除をrepositoryへ委譲する
 - 自分自身のフォロー・フォロー解除を拒否する
@@ -81,18 +81,22 @@ go tool cover -func=/tmp/service-cover.out | grep -E 'post.go|follow.go'
 
 Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQLとDB結果のマッピングを検証する。
 
-投稿Repositoryでは、次の観点をテストしている。
+`post.go`では、次の観点をテストしている。
 
 - `INSERT`へ投稿者IDと投稿内容を渡す
 - DBから返された投稿データをモデルへマッピングする
 - DBエラーをアプリケーションエラーへ分類する
 
-フォローRepositoryでは、次の観点をテストしている。
+`follow.go`では、次の観点をテストしている。
 
 - フォロー登録SQLと引数を検証する
 - フォロー解除SQLと引数を検証する
 - フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
+
+`post_error.go`では、次の観点をテストしている。
+
+- PostgreSQLのエラーコードをアプリケーションエラーへ分類する
 
 ### カバレッジ結果
 
