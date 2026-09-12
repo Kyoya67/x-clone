@@ -1,6 +1,6 @@
 # Goテスト
 
-## Controllerテスト
+## internal/controllers
 
 Controllerの依存先はFakeへ差し替え、HTTPリクエストに対するレスポンスを検証する。
 
@@ -40,7 +40,7 @@ go test ./internal/controllers -run '^(TestPostController|TestFollowController)'
 go tool cover -func=/tmp/controller-cover.out | grep -E 'post.go|follow.go'
 ```
 
-## Serviceテスト
+## internal/services
 
 Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼び出しを検証する。
 
@@ -77,7 +77,7 @@ go test ./internal/services -run '^(TestPostService|TestFollowService)' -coverpr
 go tool cover -func=/tmp/service-cover.out | grep -E 'post.go|follow.go'
 ```
 
-## Repositoryテスト
+## internal/repositories
 
 Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQLとDB結果のマッピングを検証する。
 
@@ -119,7 +119,7 @@ go test ./internal/repositories -run '^(TestPostRepository|TestFollowRepository|
 go tool cover -func=/tmp/repository-cover.out | grep -E 'post|follow'
 ```
 
-## アプリケーションエラーテスト
+## internal/apperrors
 
 アプリケーションエラーでは、共通エラー型・HTTPレスポンス変換・ステータスコード分類を検証する。
 
@@ -157,22 +157,26 @@ go test ./internal/apperrors -coverprofile=/tmp/apperrors-cover.out
 go tool cover -func=/tmp/apperrors-cover.out
 ```
 
-## DBユーザー管理コマンドテスト
+## cmd/db-user
 
 DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロール作成、app_user・migration_userの権限付与、既存テーブルの所有権移譲を検証する。
 
-`main.go`では、次の観点をテストしている。
-
 #### main
+
+main関数では、次の観点をテストしている。
 
 - CLI処理の終了コードをプロセス終了へ渡す
 
 #### runCLI
 
+runCLI関数では、次の観点をテストしている。
+
 - CLI引数を読み取り、正常終了・異常終了の終了コードと出力を返す
 - `--ca-file`が未指定の場合はエラーにする
 
 #### run
+
+run関数では、次の観点をテストしている。
 
 - app_user用Secretとmigration_user用Secretが同じ場合は拒否する
 - 管理者接続失敗時は処理を止める
@@ -183,12 +187,16 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 
 #### setupUser
 
+setupUser関数では、次の観点をテストしている。
+
 - Secretの有無に応じてDBユーザーをセットアップする
 - 既存DBユーザーの認証情報が不正な場合は拒否する
 - 既存DBユーザーの認証情報で接続確認する
 - Secret取得・保存に失敗した場合はエラーにする
 
 #### databaseUserPassword
+
+databaseUserPassword関数では、次の観点をテストしている。
 
 - 既存SecretからDBユーザーのパスワードを読み取る
 - Secret内のユーザー名が期待するDBロールと異なる場合は拒否する
@@ -198,12 +206,16 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 
 #### createRole
 
+createRole関数では、次の観点をテストしている。
+
 - 対応していないDBロール名を拒否する
 - DBロール存在確認の失敗をエラーにする
 - Secretがある既存DBロールは維持する
 - Secretがない既存DBロールは拒否する
 
 #### configureAppRole
+
+configureAppRole関数では、次の観点をテストしている。
 
 - app_userを作成し、DB接続・schema利用・既存アプリテーブルへの読み書き権限を付与する
 - app_userが存在するがSecretがない場合は拒否する
@@ -213,6 +225,8 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 
 #### configureMigrationRole
 
+configureMigrationRole関数では、次の観点をテストしている。
+
 - migration_userを作成し、DB接続・schema利用・schema作成権限を付与する
 - migration_userが既に存在する場合は既存ロールを維持する
 - migration_userが存在するがSecretがない場合は拒否する
@@ -221,6 +235,8 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 - DB接続・schema利用・管理者membership・拡張準備の各失敗を区別する
 
 #### transferMigrationTables
+
+transferMigrationTables関数では、次の観点をテストしている。
 
 - アプリテーブルとschema_migrationsの所有者をmigration_userへ変更する
 - 存在しないテーブルは所有者変更をスキップする
@@ -249,7 +265,7 @@ go test ./cmd/db-user -coverprofile=/tmp/db-user-cover.out
 go tool cover -func=/tmp/db-user-cover.out
 ```
 
-## DB管理処理テスト
+## internal/dbadmin
 
 DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポートフォワード時の接続先差し替えを検証する。
 
