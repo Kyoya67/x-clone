@@ -192,7 +192,7 @@ func (c *AuthController) exchangeCode(ctx context.Context, code, verifier string
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return auth.TokenResponse{}, errors.New("cannot exchange authorization code")
+		return auth.TokenResponse{}, fmt.Errorf("cannot exchange authorization code: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
