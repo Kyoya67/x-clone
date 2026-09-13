@@ -12,12 +12,12 @@
 │   ├── issue: 投稿機能をバックエンドから実装する
 │   ├── issue: フォロー機能をフロントエンドからデータベースまで実装する
 │   └── issue: タイムライン機能を実装する
-└── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
-    ├── issue: AWS stg環境を構築し、ECSでAPI起動とマイグレーションを確認する
-    ├── issue: AWSリソースの役割・依存関係・命名を整理する
-    ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
-    ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
-    └── issue: ECRへのイメージpushとECSへの反映を自動化する
+├── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
+│   ├── issue: AWS stg環境を構築し、ECSでAPI起動とマイグレーションを確認する
+│   ├── issue: AWSリソースの役割・依存関係・命名を整理する
+│   ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
+│   ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
+│   └── issue: ECRへのイメージpushとECSへの反映を自動化する
 └── Milestone 3: 本番品質化
     └── issue: Google OIDCによるログイン機能を実装する
 ```
