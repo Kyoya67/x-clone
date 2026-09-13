@@ -70,8 +70,9 @@ func authConfigFromEnv() controllers.AuthConfig {
 		PostLoginURL:  envOrDefault("AUTH_POST_LOGIN_URL", "/"),
 		SessionSecret: os.Getenv("AUTH_SESSION_SECRET"),
 		Cookie: auth.CookieConfig{
-			Domain: os.Getenv("AUTH_COOKIE_DOMAIN"),
-			Secure: secureCookie,
+			Domain:     os.Getenv("AUTH_COOKIE_DOMAIN"),
+			Secure:     secureCookie,
+			NamePrefix: os.Getenv("AUTH_COOKIE_NAME_PREFIX"),
 		},
 	}
 }

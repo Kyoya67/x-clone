@@ -17,6 +17,7 @@ variable "backend" {
       post_login_url = string
       cookie_domain  = string
       cookie_secure  = string
+      cookie_prefix  = string
     })
     log_group_name = string
   })

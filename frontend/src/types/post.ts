@@ -6,6 +6,7 @@ export type Post = {
   body: string
   time: string
   avatar: string
+  avatarClass?: string
   likes: number
   replies: number
   reposts: number

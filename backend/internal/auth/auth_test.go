@@ -138,23 +138,35 @@ func TestVerifySessionRejectsInvalidValue(t *testing.T) {
 }
 
 func TestSessionCookies(t *testing.T) {
-	config := CookieConfig{Domain: "example.com", Secure: true}
+	config := CookieConfig{Domain: "example.com", Secure: true, NamePrefix: "x_clone_stg"}
 	recorder := httptest.NewRecorder()
 
 	SetSessionCookie(recorder, "session", config)
-	SetTemporaryCookie(recorder, StateCookieName, "state", config)
-	ClearTemporaryCookie(recorder, StateCookieName, config)
+	SetTemporaryCookie(recorder, config.StateName(), "state", config)
+	ClearTemporaryCookie(recorder, config.StateName(), config)
 	ClearSessionCookie(recorder, config)
+	ClearLegacySessionCookie(recorder, config)
 
 	cookies := recorder.Result().Cookies()
-	if len(cookies) != 4 {
+	if len(cookies) != 5 {
 		t.Fatalf("expected cookies, got %#v", cookies)
 	}
-	if cookies[0].Name != SessionCookieName || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].Domain != "example.com" {
+	if cookies[0].Name != "x_clone_stg_session" || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].Domain != "example.com" {
 		t.Fatalf("unexpected session cookie: %#v", cookies[0])
 	}
-	if cookies[3].Name != SessionCookieName || cookies[3].MaxAge != -1 {
+	if cookies[3].Name != "x_clone_stg_session" || cookies[3].MaxAge != -1 {
 		t.Fatalf("expected cleared session cookie, got %#v", cookies[3])
+	}
+	if cookies[4].Name != SessionCookieName || cookies[4].MaxAge != -1 {
+		t.Fatalf("expected cleared legacy session cookie, got %#v", cookies[4])
+	}
+}
+
+func TestCookieConfigUsesLegacyNamesWithoutPrefix(t *testing.T) {
+	config := CookieConfig{}
+
+	if config.SessionName() != SessionCookieName || config.StateName() != StateCookieName || config.NonceName() != NonceCookieName || config.PKCEName() != PKCECookieName {
+		t.Fatalf("unexpected legacy names: %#v", config)
 	}
 }
 
@@ -230,7 +242,7 @@ func TestVerifyIDTokenRejectsInvalidValues(t *testing.T) {
 			ExpiresAt: now.Add(time.Hour).Unix(),
 			Nonce:     "wrong",
 		})},
-		{name: "invalid signature", token: valid[:len(valid)-1] + "x"},
+		{name: "invalid signature", token: strings.Join(strings.Split(valid, ".")[:2], ".") + "." + base64.RawURLEncoding.EncodeToString([]byte("invalid-signature"))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

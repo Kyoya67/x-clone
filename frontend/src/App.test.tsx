@@ -48,6 +48,16 @@ beforeEach(() => {
             JSON.stringify({
               posts: [
                 {
+                  id: 'post-0',
+                  content: '自分の投稿です。',
+                  createdAt: '2026-09-09T00:00:00Z',
+                  author: {
+                    id: '00000000-0000-0000-0000-000000000001',
+                    handle: 'taro_tanaka',
+                    displayName: '田中 太郎',
+                  },
+                },
+                {
                   id: 'post-1',
                   content: 'テスト投稿です。',
                   createdAt: '2026-09-09T00:00:00Z',
@@ -149,6 +159,17 @@ describe('App routes', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('navigates to the own profile page when clicking the current user post', async () => {
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/')
+    render(<App />)
+
+    await user.click(await screen.findByRole('link', { name: '田中 太郎' }))
+
+    expect(window.location.pathname).toBe('/profile')
+    expect(await screen.findByText('自分の投稿です。')).toBeInTheDocument()
+  })
+
   it('follows the selected profile user instead of a fixed user', async () => {
     const user = userEvent.setup()
     window.history.pushState({}, '', '/users/sho_sato')
@@ -182,7 +203,9 @@ describe('App routes', () => {
       screen.queryByRole('menuitem', { name: '既存のアカウントを追加' }),
     ).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: /田中 太郎/ }))
-    expect(screen.getByRole('menuitem', { name: '既存のアカウントを追加' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitem', { name: '既存のアカウントを追加' }),
+    ).not.toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: '@taro_tanakaからログアウト' }))
 
     expect(fetch).toHaveBeenCalledWith('/auth/logout', { method: 'POST' })
