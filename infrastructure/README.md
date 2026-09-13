@@ -33,13 +33,13 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
 ## 4. DBユーザー・Secret・実行場所の関係
 
-### dbadmin：初期設定・ユーザー管理用
+### DBユーザー：dbadmin（初期設定・ユーザー管理用）
 
 - 開発者PCでbackend/cmd/db-userを実行するときに使う。API・マイグレーションのECSタスクでは使わない。
 - migration_userとapp_userを作成する。
 - 各ユーザーへ必要な権限を付与する。
 
-### migration_user：マイグレーション用
+### DBユーザー：migration_user（マイグレーション用）
 
 - 単発実行するECSタスクdb-migratorが、DBへ接続するときに使う。
 - 現在は開発者がタスクを起動する。将来はCI/CDから同じタスクを起動し、デプロイ時のテーブル作成・変更に使う。
@@ -49,7 +49,7 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 - migration_userで実行するマイグレーションにより、public配下のアプリテーブルを作成・変更する。
 - マイグレーション管理用のschema_migrationsはmigrationスキーマで管理する。
 
-### app_user：API用
+### DBユーザー：app_user（API用）
 
 - ECSサービスで常時動かすAPIタスクapiが、DBへ接続するときに使う。
 - アプリ利用者が画面から投稿・フォロー・タイムライン表示を操作すると、APIがapp_userとしてDBを読み書きする。
@@ -63,15 +63,19 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 ```mermaid
 sequenceDiagram
   actor DEV as 開発者
+  participant ENV as infrastructure/stg/.env
   participant CMD as backend/cmd/db-user<br/>バックエンドのGo管理コード（開発者PCで実行）
   participant TF as Terraform（開発者PC）
+  participant TUN as backend/scripts/db-tunnel.sh
   participant SM as Secrets Manager
   participant RDS as RDS
-  DEV->>TF: 1. .envを設定・読み込み、apply
-  TF->>SM: 2. db/dbadminを作成し、固定名dbadminとパスワードを保存
-  TF->>SM: db/app_user・db/migration_userの保存先を作成（値はまだ空）
+  DEV->>ENV: 1. dbadminのパスワードを設定
+  DEV->>TF: 2. .envを読み込み、apply
+  TF->>SM: db/dbadminを作成し、固定名dbadminとパスワードを保存
+  TF->>SM: db/app_user・db/migration_userのSecret保存先を作成（値はまだ空）
   TF->>RDS: dbadminと同じパスワードを設定
-  DEV->>DEV: 3. SSMポート転送を開始（PC → NAT → RDS）
+  DEV->>TUN: 3. SSMポート転送を開始
+  TUN->>RDS: 開発者PCの127.0.0.1:15432から<br/>nat-instance経由でRDSへ転送
   DEV->>CMD: 4. DBユーザー作成コマンドを実行
   CMD->>SM: IAMユーザーの認証で<br/>db/dbadminを取得
   SM-->>CMD: dbadminのユーザー名・パスワード
@@ -84,9 +88,21 @@ sequenceDiagram
 
 | 順序 | 実行するもの | 役割 |
 | ---- | ------------ | ---- |
-| 1 | infrastructure/stg の Terraform | db/dbadmin・db/app_user・db/migration_userのSecret、RDS、IAMなどを作成する |
-| 2 | backend/scripts/db-tunnel.sh | SSMポート転送で、開発者PCの127.0.0.1:15432からRDSへ到達できる経路を作る |
-| 3 | backend/cmd/db-user/main.go | dbadminでRDSへ接続し、app_user・migration_userの作成、migrationスキーマ、default privilegesを設定する |
+| 1 | infrastructure/stg/.env | dbadmin用のパスワードをローカルで管理する |
+| 2 | infrastructure/stg の Terraform | db/dbadmin・db/app_user・db/migration_userのSecret、RDS、IAMなどを作成する |
+| 3 | backend/scripts/db-tunnel.sh | SSMポート転送で、開発者PCの127.0.0.1:15432からRDSへ到達できる経路を作る |
+| 4 | backend/cmd/db-user/main.go | dbadminでRDSへ接続し、app_user・migration_userの作成、migrationスキーマ、default privilegesを設定する |
+
+.envで管理する値：
+
+| 値 | 用途 | 理由 |
+| --- | --- | --- |
+| TF_VAR_dbadmin_password | RDSのdbadminパスワード、db/dbadmin Secretの値 | Terraform apply時だけ渡す。コミットしない |
+| TF_VAR_dbadmin_password_version | dbadminパスワードを意図的に更新するときの世代番号 | password_wo / secret_string_wo の更新タイミングを明示する |
+
+dbadminのSecret値をTerraformのdata sourceで読み込んでRDSに渡す構成にはしない。Secretの中身がTerraform Stateに残る可能性があるため、RDSとSecrets Managerへ同じ値を.envから同時に渡す。
+
+SSMポート転送は、開発者PCからRDSへ一時的に到達するための経路。db-user実行時だけ使い、APIタスクやマイグレーションタスクでは使わない。
 
 ### migration_user:マイグレーション（現在の手動起動と将来のCI/CD）
 
@@ -129,30 +145,7 @@ flowchart LR
 
 app_userを使うのはAPI。利用者はHTTPでAPIを操作し、RDSへ直接接続しない。Secretの取得はタスク起動時に行い、HTTPリクエストのたびには取得しない。
 
-## 5. 管理・実行経路
-
-### SSMポートフォワード
-
-```mermaid
-flowchart LR
-  CMD["開発者PC<br/>cmd/db-user"]
-  LOOP["開発者PC<br/>127.0.0.1:15432"]
-  SSM["SSM Session Manager"]
-  NAT["EC2<br/>nat-instance"]
-  RDS["RDS<br/>app-db:5432"]
-  TLS["TLS検証<br/>RDSホスト名 + RDS CA"]
-
-  CMD -->|"TCP接続先を差し替え"| LOOP
-  LOOP -->|"SSMで転送"| SSM
-  SSM --> NAT
-  NAT --> RDS
-  CMD -.->|"証明書の名前確認は<br/>RDSホスト名で行う"| TLS
-  TLS -.-> RDS
-```
-
-`cmd/db-user`は、RDSへ直接接続せず、ローカルの`127.0.0.1:15432`へ接続する。その通信をSSMがnat-instance経由でRDSへ転送する。
-
-## 6. 残りの対応
+## 5. 残りの対応
 
 - 作業用IAMユーザーはAdministratorAccess。用途別の最小権限化は未実施。
 - NATは単一障害点。APIも通常1タスク、RDSもSingle-AZであり、全体として冗長構成ではない。
