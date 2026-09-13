@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -195,7 +196,8 @@ func (c *AuthController) exchangeCode(ctx context.Context, code, verifier string
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return auth.TokenResponse{}, errors.New("cannot exchange authorization code")
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return auth.TokenResponse{}, fmt.Errorf("cannot exchange authorization code: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var token auth.TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil || token.IDToken == "" {
