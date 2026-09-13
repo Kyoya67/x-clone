@@ -6,6 +6,15 @@ variable "branch_name" {
   type = string
 }
 
+variable "domain_name" {
+  description = "フロント公開用のホストゾーンルートのドメイン名。"
+  type        = string
+}
+
+variable "hosted_zone_id" {
+  type = string
+}
+
 variable "tags" {
   type = map(string)
 }

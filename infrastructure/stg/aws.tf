@@ -96,10 +96,12 @@ module "iam" {
 module "amplify" {
   source = "../modules/amplify"
 
-  name        = "x-clone"
-  branch_name = "stg"
-  api_url     = module.alb.api_url
-  tags        = local.common_tags
+  name           = "x-clone"
+  branch_name    = "stg"
+  api_url        = module.alb.api_url
+  domain_name    = "stg.x-clone.kyo8.dev"
+  hosted_zone_id = module.route53.zone_id
+  tags           = local.common_tags
 }
 
 module "ec2" {

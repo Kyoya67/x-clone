@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | Amplify Hosting | x-clone | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス |
 | Amplifyブランチ | stg | Git連携なしでビルド成果物を手動アップロードする配信先 |
+| 独自ドメイン（定義追加・未検証） | stg.x-clone.kyo8.dev → stgブランチ | Amplify管理証明書でHTTPS配信。Route 53のAエイリアス・検証CNAMEをTerraform管理 |
 | ビルド | ローカルのfrontend | npm ci・npm run buildを実行し、distの中身をZIP化 |
 | リライト | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応 |
 | API転送（定義追加・未検証） | /api/<*> → https://api-v1.stg.x-clone.kyo8.dev/<*> | /apiを除去してHTTPSで転送。SPAルールより先に評価 |
@@ -28,10 +29,14 @@ Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはAmpl
 #### 残作業（Issue #27）
 
 - Amplifyの/api転送設定のapply・実環境検証。公開URLの/api/health、一覧取得のクエリ、投稿・フォローの送信と再取得を確認する。
-- 独自ドメインstg.x-clone.kyo8.devの関連付けとDNS設定。
+- 独自ドメイン設定をapplyし、Amplifyのドメイン状態がAVAILABLEになった後、https://stg.x-clone.kyo8.devと/api/healthを確認する。
 - 公開画面からAPI・RDSへの読み書き確認。Amplify作成だけでは疎通完了としない。
 
 AmplifyではSPA配信のみを行い、DBの認証情報やAWS操作権限はフロントへ渡さない。
+
+独自ドメインは既存のstgブランチへ関連付けるため、ビルド成果物の再アップロードは不要。
+DNSレコードを同じapply内で作成できるよう、ドメイン関連付けのwait_for_verificationはfalseにしている。apply完了と証明書・配信設定の反映完了は別なので、AVAILABLEとHTTPS応答を確認する。
+stg.x-clone.kyo8.devはホストゾーンのルートでCNAMEを置けないため、Amplifyから取得したCloudFront配信先へAエイリアスを設定する。API用のapi-v1レコードはそのまま使う。
 
 ### VPC・サブネットとリソース配置
 
