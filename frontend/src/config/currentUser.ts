@@ -3,8 +3,7 @@ export const currentUser = {
   handle: import.meta.env.VITE_CURRENT_USER_HANDLE ?? '@taro_tanaka',
   displayName: import.meta.env.VITE_CURRENT_USER_DISPLAY_NAME ?? '田中 太郎',
   bio:
-    import.meta.env.VITE_CURRENT_USER_BIO ??
-    'プロダクト開発とユーザー体験について考えています。',
+    import.meta.env.VITE_CURRENT_USER_BIO ?? 'プロダクト開発とユーザー体験について考えています。',
   avatar: import.meta.env.VITE_CURRENT_USER_AVATAR ?? '太',
 }
 
