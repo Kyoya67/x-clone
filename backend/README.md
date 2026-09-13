@@ -2,6 +2,27 @@
 
 Goで実装するバックエンドAPIです。
 
+## ディレクトリ構成
+
+```text
+backend/
+├── cmd/api/             # APIサーバーの起動
+│   └── main.go
+├── docker-compose.yml    # ローカルPostgreSQL
+├── Makefile               # マイグレーションコマンド
+├── .env.example           # 環境変数のサンプル
+├── openapi/              # API仕様
+│   └── openapi.yaml
+├── internal/
+│   ├── controllers/      # HTTPリクエスト・レスポンスの処理
+│   │   └── health.go
+│   └── routers/          # URLとcontrollerの紐付け
+│       ├── router.go
+│       └── router_test.go
+├── go.mod
+└── README.md
+```
+
 ## 使用技術
 
 - Go
@@ -205,24 +226,3 @@ go vet ./...
 - `GET /health`によるヘルスチェック
 
 投稿、フォロー、タイムラインのAPI仕様は[`openapi/openapi.yaml`](openapi/openapi.yaml)で定義しています。各APIの実装は今後の機能Issueで行います。
-
-## ディレクトリ構成
-
-```text
-backend/
-├── cmd/api/             # APIサーバーの起動
-│   └── main.go
-├── docker-compose.yml    # ローカルPostgreSQL
-├── Makefile               # マイグレーションコマンド
-├── .env.example           # 環境変数のサンプル
-├── openapi/              # API仕様
-│   └── openapi.yaml
-├── internal/
-│   ├── controllers/      # HTTPリクエスト・レスポンスの処理
-│   │   └── health.go
-│   └── routers/          # URLとcontrollerの紐付け
-│       ├── router.go
-│       └── router_test.go
-├── go.mod
-└── README.md
-```

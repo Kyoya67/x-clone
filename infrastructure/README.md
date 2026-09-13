@@ -2,6 +2,37 @@
 
 AWS上にstg環境のアプリケーション基盤を構築するTerraformコードです。
 
+## ディレクトリ構成
+
+`````text
+infrastructure/
+├── README.md              # インフラの環境構築・運用手順
+├── ARCHITECTURE.md        # AWSリソース構成、SG、IAM、DBユーザー設計
+├── modules/               # 環境間で再利用するTerraform module
+│   ├── vpc/
+│   ├── subnet/
+│   ├── route_table/
+│   ├── security_group/
+│   ├── ec2/
+│   ├── ecr/
+│   ├── ecs/
+│   ├── ecs_service/
+│   ├── ecs_task_definition/
+│   ├── rds/
+│   ├── secrets_manager/
+│   └── cloudwatch_logs/
+└── stg/                   # stg環境のTerraform root module
+    ├── aws.tf
+    ├── backend.tf
+    ├── variable.tf
+    ├── version.tf
+    ├── subnet_moves.tf
+    ├── Makefile
+    └── .env.example
+`````
+
+環境ごとにTerraform root moduleを分ける。現在は`stg/`のみ。将来production環境を作る場合は、`prd/`を追加して`modules/`を再利用する。
+
 ## 使用技術
 
 - Terraform
@@ -28,7 +59,18 @@ docker --version
 jq --version
 `````
 
-## 環境構築
+## 全体の構築・反映順序
+
+| 順序 | 作業 | 主な対象 |
+| ---- | ---- | -------- |
+| 1 | TerraformでAWSリソースを作成する | VPC、Subnet、SG、IAM、ECR、ECS、RDS、Secrets Manager |
+| 2 | DockerイメージをECRへpushする | API、db-migrator |
+| 3 | TerraformでECSタスク定義・サービスへ反映する | ECSタスク定義、ECSサービス |
+| 4 | DBユーザーを登録する | dbadmin、app_user、migration_user、Secrets Manager |
+| 5 | RDSマイグレーションを実行する | db-migrator ECS単発タスク、RDS |
+| 6 | API起動を確認する | ECSサービス、APIタスク、CloudWatch Logs |
+
+## TerraformによるAWSリソース構築
 
 Terraformの実行は`infrastructure/stg`ディレクトリで行います。
 
@@ -39,11 +81,21 @@ cd infrastructure/stg
 `.env`を作成し、dbadmin用のパスワードを設定します。
 
 `````bash
+cp .env.example .env
+`````
+
+`````bash
 TF_VAR_dbadmin_password=任意のRDS管理者パスワード
 TF_VAR_dbadmin_password_version=1
 `````
 
 `.env`はTerraform実行時だけ読み込まれます。RDSのdbadminパスワードと、Secrets Managerの`db/dbadmin`へ同じ値を渡します。
+
+初回のみTerraformを初期化します。
+
+`````bash
+terraform init
+`````
 
 Terraform plan：
 
@@ -57,7 +109,7 @@ Terraform apply：
 make apply
 `````
 
-## ECRへのイメージpush
+## ECRへのDockerイメージpush
 
 API用イメージとマイグレーション用イメージは、`backend`ディレクトリからpushします。
 
@@ -67,12 +119,16 @@ make api-ecr-push
 make migration-ecr-push
 `````
 
-push後、`infrastructure/stg/aws.tf`のイメージタグを更新してTerraformを再実行します。
+## ECSへのイメージ反映
+
+ECRへpushしたイメージタグを`infrastructure/stg/aws.tf`へ反映し、ECSタスク定義とECSサービスを更新します。
 
 `````bash
 cd infrastructure/stg
 make apply
 `````
+
+APIはECSサービスで常時起動します。マイグレーションはECSサービスではなく、必要なときだけ単発タスクとして起動します。
 
 ## DBユーザー登録
 
