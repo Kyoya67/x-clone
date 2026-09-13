@@ -46,6 +46,13 @@ resource "aws_ecs_task_definition" "api" {
       }
     }
   }])
+
+  lifecycle {
+    # Docker image tagはGitHub Actions CDがcommit SHAで更新する。
+    # Terraform applyで古いimage tagへ戻さないため、container定義の差分は無視する。
+    ignore_changes = [container_definitions]
+  }
+
   tags = var.tags
 }
 
@@ -87,5 +94,12 @@ resource "aws_ecs_task_definition" "migration" {
       }
     }
   }])
+
+  lifecycle {
+    # Docker image tagはGitHub Actions CDがcommit SHAで更新する。
+    # Terraform applyで古いimage tagへ戻さないため、container定義の差分は無視する。
+    ignore_changes = [container_definitions]
+  }
+
   tags = var.tags
 }
