@@ -187,8 +187,8 @@ CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行�
 | -------- | -------- | -------- |
 | .github/workflows/frontend-ci.yml | frontend変更を含むPull Request、develop/mainへのpush | frontendのformat:check・test・build |
 | .github/workflows/backend-ci.yml | backend変更を含むPull Request、develop/mainへのpush | backendのgofmt・go test・go vet |
-| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
-| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
 
 ### 環境切り替え
 
