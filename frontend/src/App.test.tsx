@@ -84,4 +84,17 @@ describe('App routes', () => {
     expect(screen.getByText('@ken_yamamoto')).toBeInTheDocument()
     expect(screen.getByText('山本 健')).toBeInTheDocument()
   })
+
+  it('shows the account menu and logs out from the current account', async () => {
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('menuitem', { name: '既存のアカウントを追加' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: '@taro_tanakaからログアウト' }))
+
+    expect(fetch).toHaveBeenCalledWith('/auth/logout', { method: 'POST' })
+  })
 })

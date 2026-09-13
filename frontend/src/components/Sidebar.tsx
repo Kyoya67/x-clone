@@ -47,21 +47,25 @@ export function Sidebar() {
       >
         ポストする
       </button>
-      <div className="account-card">
-        <span className="avatar avatar-blue">{avatar}</span>
-        <span className="account-copy">
-          <strong>{displayName}</strong>
-          <small>@{handle}</small>
-        </span>
-        <span className="more">
-          {auth ? (
-            <button type="button" onClick={() => void auth.logout()}>
-              ログアウト
+      <div className="account-menu">
+        <div className="account-popover" role="menu" aria-label="アカウントメニュー">
+          <button type="button" role="menuitem">
+            既存のアカウントを追加
+          </button>
+          {auth && (
+            <button type="button" role="menuitem" onClick={() => void auth.logout()}>
+              @{handle}からログアウト
             </button>
-          ) : (
-            '•••'
           )}
-        </span>
+        </div>
+        <button className="account-card" type="button" aria-haspopup="menu">
+          <span className="avatar avatar-blue">{avatar}</span>
+          <span className="account-copy">
+            <strong>{displayName}</strong>
+            <small>@{handle}</small>
+          </span>
+          <span className="more">•••</span>
+        </button>
       </div>
     </aside>
   )
