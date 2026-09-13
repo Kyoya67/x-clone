@@ -79,6 +79,7 @@ jobs:
 
           zip_file="$(mktemp --suffix=.zip)"
           trap 'rm -f -- "$zip_file" deployment.json job.json' EXIT
+          rm -f "$zip_file"
 
           (cd dist && zip -qr "$zip_file" .)
 
