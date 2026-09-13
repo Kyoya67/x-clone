@@ -10,30 +10,28 @@ on:
         options:
           - stg
           - prd
-  workflow_run:
-    workflows:
-      - Frontend CI
-    types:
-      - completed
+  push:
     branches:
       - develop
       - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-cd.yml'
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  DEPLOY_SHA: ${{ github.sha }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
-  AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
-  AMPLIFY_BRANCH_NAME: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_BRANCH_NAME_PRD' || 'AMPLIFY_BRANCH_NAME_STG'] }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
+  AMPLIFY_BRANCH_NAME: ${{ vars[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_BRANCH_NAME_PRD' || 'AMPLIFY_BRANCH_NAME_STG'] }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: frontend
