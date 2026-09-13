@@ -8,6 +8,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/backend-cd.yml'
   push:
     branches:
       - develop
@@ -15,6 +16,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/backend-cd.yml'
 
 jobs:
   check:
