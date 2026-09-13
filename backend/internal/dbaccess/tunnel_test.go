@@ -1,11 +1,33 @@
-package dbadmin
+package dbaccess
 
 import (
 	"context"
+	"net/url"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 )
+
+func TestConnectionURLBuildsPostgresURL(t *testing.T) {
+	databaseURL := ConnectionURL("db.example", 5432, "app_user", "p@ss/word", "/tmp/rds-ca.pem")
+
+	u, err := url.Parse(databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	password, ok := u.User.Password()
+	if u.Scheme != "postgres" ||
+		u.Host != "db.example:5432" ||
+		u.Path != "/app" ||
+		u.User.Username() != "app_user" ||
+		!ok ||
+		password != "p@ss/word" ||
+		u.Query().Get("sslmode") != "verify-full" ||
+		u.Query().Get("sslrootcert") != "/tmp/rds-ca.pem" ||
+		u.Query().Get("connect_timeout") != "10" {
+		t.Fatalf("unexpected database url: %s", databaseURL)
+	}
+}
 
 func TestOpenDatabaseReturnsDatabaseWithoutConnecting(t *testing.T) {
 	db, err := OpenDatabase("postgres://app_user:test@db.example:5432/app?sslmode=verify-full", "")

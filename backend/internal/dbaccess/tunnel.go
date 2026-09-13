@@ -1,16 +1,29 @@
-package dbadmin
+package dbaccess
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"net"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 )
+
+type RDSEndpoint struct {
+	Host string
+	Port int
+}
+
+func ConnectionURL(host string, port int, user, password, ca string) string {
+	u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/app", User: url.UserPassword(user, password)}
+	q := url.Values{"sslmode": {"verify-full"}, "sslrootcert": {ca}, "connect_timeout": {"10"}}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
 
 func OpenDatabase(databaseURL, localForwardEndpoint string) (*sql.DB, error) {
 	// databaseURLにはRDS本物のホスト名を入れておく。TLS検証でこのホスト名を使うため。

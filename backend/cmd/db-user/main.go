@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbaccess"
 )
 
-var openAdministrator = dbadmin.OpenAdministrator
+var openAdministrator = dbaccess.OpenAdministrator
 var runCommand = run
 var exit = os.Exit
 var randomRead = rand.Read
@@ -25,11 +25,11 @@ var standardOutput io.Writer = os.Stdout
 var standardError io.Writer = os.Stderr
 
 var (
-	currentSecretVersionExists = dbadmin.CurrentSecretVersionExists
-	getSecretString            = dbadmin.GetSecretString
-	putSecretString            = dbadmin.PutSecretString
-	connectionURL              = dbadmin.ConnectionURL
-	openDatabase               = dbadmin.OpenDatabase
+	currentSecretVersionExists = dbaccess.CurrentSecretVersionExists
+	getSecretString            = dbaccess.GetSecretString
+	putSecretString            = dbaccess.PutSecretString
+	connectionURL              = dbaccess.ConnectionURL
+	openDatabase               = dbaccess.OpenDatabase
 )
 
 type credentials struct {
@@ -98,7 +98,7 @@ func run(ctx context.Context, instance, appSecretID, migrationSecretID, caFile, 
 }
 
 // DBユーザーのセットアップを行う。既存のシークレットがある場合は、それを利用して接続確認を行い、必要に応じてパスワードを設定する。
-func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbadmin.RDSEndpoint, secretID, caFile, localForwardEndpoint, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
+func setupUser(ctx context.Context, tx *sql.Tx, rdsEndpoint dbaccess.RDSEndpoint, secretID, caFile, localForwardEndpoint, role string, configure func(context.Context, *sql.Tx, string, bool) error) error {
 	hasCurrentSecret, err := currentSecretVersionExists(ctx, secretID)
 	if err != nil {
 		return err

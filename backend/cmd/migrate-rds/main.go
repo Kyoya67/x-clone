@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbaccess"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	migrationsource "github.com/golang-migrate/migrate/v4/source"
@@ -39,7 +39,7 @@ func databaseURL(ca string) (string, error) {
 	if host == "" || user != "migration_user" || password == "" || err != nil || port < 1 || port > 65535 {
 		return "", errors.New("DB_HOST, DB_PORT, DB_USER=migration_user and DB_PASSWORD are required")
 	}
-	return dbadmin.ConnectionURL(host, port, user, password, ca), nil
+	return dbaccess.ConnectionURL(host, port, user, password, ca), nil
 }
 
 func run(ca, path, action string) error {
@@ -55,7 +55,7 @@ func run(ca, path, action string) error {
 	if err != nil {
 		return err
 	}
-	db, err := dbadmin.OpenDatabase(url, "")
+	db, err := dbaccess.OpenDatabase(url, "")
 	if err != nil {
 		return errors.New("cannot initialize migration connection; check DB settings and RDS CA")
 	}
@@ -89,7 +89,7 @@ func run(ca, path, action string) error {
 }
 
 func migrateUp(db *sql.DB, source migrationsource.Driver) error {
-	// schema_migrationsはアプリ用のpublicではなく、migrationスキーマで管理する。
+	// schema_migrationsはmigrationスキーマで管理する。
 	driver, err := postgres.WithInstance(db, &postgres.Config{
 		DatabaseName: "app", SchemaName: "migration", StatementTimeout: 60 * time.Second,
 	})

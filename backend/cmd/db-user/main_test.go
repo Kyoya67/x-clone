@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbadmin"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/dbaccess"
 )
 
 func TestRunCLISucceeds(t *testing.T) {
@@ -116,7 +116,7 @@ func TestMainCallsExitWithRunCLIResult(t *testing.T) {
 
 func TestConnectionURLEscapesPassword(t *testing.T) {
 	password := "a:@/?#'\\secret"
-	u, err := url.Parse(dbadmin.ConnectionURL("db.example", 5432, "app_user", password, "/tmp/ca.pem"))
+	u, err := url.Parse(dbaccess.ConnectionURL("db.example", 5432, "app_user", password, "/tmp/ca.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,10 +193,10 @@ func newMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-func stubOpenAdministrator(t *testing.T, db *sql.DB, rdsEndpoint dbadmin.RDSEndpoint, err error) func() {
+func stubOpenAdministrator(t *testing.T, db *sql.DB, rdsEndpoint dbaccess.RDSEndpoint, err error) func() {
 	t.Helper()
 	original := openAdministrator
-	openAdministrator = func(context.Context, string, string, string, string) (*sql.DB, dbadmin.RDSEndpoint, error) {
+	openAdministrator = func(context.Context, string, string, string, string) (*sql.DB, dbaccess.RDSEndpoint, error) {
 		return db, rdsEndpoint, err
 	}
 	return func() {
@@ -206,7 +206,7 @@ func stubOpenAdministrator(t *testing.T, db *sql.DB, rdsEndpoint dbadmin.RDSEndp
 
 func TestRunConfiguresApplicationAndMigrationUsers(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 	restoreSecrets := stubSecretStore(t, false, "", func(string, string) error { return nil })
 	defer restoreSecrets()
@@ -240,7 +240,7 @@ func TestRunConfiguresApplicationAndMigrationUsers(t *testing.T) {
 
 func TestRunReturnsSetupLockError(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 
 	mock.ExpectBegin()
@@ -257,7 +257,7 @@ func TestRunReturnsSetupLockError(t *testing.T) {
 }
 
 func TestRunReturnsOpenAdministratorError(t *testing.T) {
-	restoreOpen := stubOpenAdministrator(t, nil, dbadmin.RDSEndpoint{}, errors.New("administrator connection failed"))
+	restoreOpen := stubOpenAdministrator(t, nil, dbaccess.RDSEndpoint{}, errors.New("administrator connection failed"))
 	defer restoreOpen()
 
 	err := run(context.Background(), "app-db", "db/app_user", "db/migration_user", "/tmp/ca.pem", "", "db/dbadmin")
@@ -268,7 +268,7 @@ func TestRunReturnsOpenAdministratorError(t *testing.T) {
 
 func TestRunReturnsBeginTransactionError(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 	mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
@@ -283,7 +283,7 @@ func TestRunReturnsBeginTransactionError(t *testing.T) {
 
 func TestRunReturnsCommitError(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 	restoreSecrets := stubSecretStore(t, false, "", func(string, string) error { return nil })
 	defer restoreSecrets()
@@ -318,7 +318,7 @@ func TestRunReturnsCommitError(t *testing.T) {
 
 func TestRunReturnsApplicationSetupError(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 	originalCurrent := currentSecretVersionExists
 	currentSecretVersionExists = func(context.Context, string) (bool, error) {
@@ -343,7 +343,7 @@ func TestRunReturnsApplicationSetupError(t *testing.T) {
 
 func TestRunReturnsMigrationSetupError(t *testing.T) {
 	db, mock := newMockDB(t)
-	restoreOpen := stubOpenAdministrator(t, db, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
+	restoreOpen := stubOpenAdministrator(t, db, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, nil)
 	defer restoreOpen()
 	originalCurrent := currentSecretVersionExists
 	originalPut := putSecretString
@@ -779,7 +779,7 @@ func TestSetupUserCreatesRoleAndStoresNewSecret(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 	configureCalled := false
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
 		configureCalled = true
 		if len(password) != 64 || hasSecret {
 			t.Fatalf("unexpected configure args: password=%s hasSecret=%v", password, hasSecret)
@@ -808,7 +808,7 @@ func TestSetupUserReusesExistingSecret(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 	configureCalled := false
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
 		configureCalled = true
 		if password != "saved-password" || !hasSecret {
 			t.Fatalf("unexpected configure args: password=%s hasSecret=%v", password, hasSecret)
@@ -833,7 +833,7 @@ func TestSetupUserRejectsInvalidConnectionForExistingRole(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("app_user").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "203.0.113.1:15432", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "203.0.113.1:15432", "app_user", nil)
 	if err == nil || err.Error() != "cannot initialize database connection" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -879,7 +879,7 @@ func TestSetupUserVerifiesExistingRoleCredentials(t *testing.T) {
 	}()
 
 	configureCalled := false
-	err = setupUser(context.Background(), tx, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "127.0.0.1:15432", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
+	err = setupUser(context.Background(), tx, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "127.0.0.1:15432", "app_user", func(_ context.Context, _ *sql.Tx, password string, hasSecret bool) error {
 		configureCalled = true
 		if password != "saved-password" || !hasSecret {
 			t.Fatalf("unexpected configure args: password=%s hasSecret=%v", password, hasSecret)
@@ -922,7 +922,7 @@ func TestSetupUserRejectsExistingRolePingError(t *testing.T) {
 		openDatabase = originalOpenDatabase
 	}()
 
-	err = setupUser(context.Background(), tx, dbadmin.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", nil)
+	err = setupUser(context.Background(), tx, dbaccess.RDSEndpoint{Host: "db.example", Port: 5432}, "db/app_user", "/tmp/ca.pem", "", "app_user", nil)
 	if err == nil || err.Error() != "saved database credentials cannot connect; refusing to change password" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -939,7 +939,7 @@ func TestSetupUserRejectsEmptyExistingSecret(t *testing.T) {
 	restore := stubSecretStore(t, true, "", nil)
 	defer restore()
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
 	if err == nil || err.Error() != "database user secret is empty" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -955,7 +955,7 @@ func TestSetupUserReturnsCurrentSecretError(t *testing.T) {
 		currentSecretVersionExists = originalCurrent
 	}()
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
 	if err == nil || err.Error() != "secret version lookup failed" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -976,7 +976,7 @@ func TestSetupUserReturnsGetSecretError(t *testing.T) {
 		getSecretString = originalGet
 	}()
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
 	if err == nil || err.Error() != "secret lookup failed" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -987,7 +987,7 @@ func TestSetupUserReturnsInvalidCredentialError(t *testing.T) {
 	restore := stubSecretStore(t, true, `{"username":"migration_user","password":"saved-password"}`, nil)
 	defer restore()
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
 	if err == nil || err.Error() != "invalid database credentials; refusing to overwrite" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -999,7 +999,7 @@ func TestSetupUserReturnsRoleInspectionError(t *testing.T) {
 	defer restore()
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("app_user").WillReturnError(errors.New("inspect failed"))
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", nil)
 	if err == nil || err.Error() != "cannot inspect database role" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1015,7 +1015,7 @@ func TestSetupUserReturnsConfigureError(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("app_user").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", func(context.Context, *sql.Tx, string, bool) error {
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", func(context.Context, *sql.Tx, string, bool) error {
 		return errors.New("configure failed")
 	})
 	if err == nil || err.Error() != "configure failed" {
@@ -1035,7 +1035,7 @@ func TestSetupUserReturnsPutSecretError(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("app_user").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
-	err := setupUser(context.Background(), tx, dbadmin.RDSEndpoint{}, "db/app_user", "", "", "app_user", func(context.Context, *sql.Tx, string, bool) error {
+	err := setupUser(context.Background(), tx, dbaccess.RDSEndpoint{}, "db/app_user", "", "", "app_user", func(context.Context, *sql.Tx, string, bool) error {
 		return nil
 	})
 	if err == nil || err.Error() != "secret save failed" {

@@ -1,6 +1,6 @@
 # DBトンネル接続
 
-このドキュメントは、[`backend/internal/dbadmin/tunnel.go`](../internal/dbadmin/tunnel.go)の実装を説明する。
+このドキュメントは、[`backend/internal/dbaccess/tunnel.go`](../internal/dbaccess/tunnel.go)の実装を説明する。
 
 ## シェルのトンネルとGoのトンネル
 

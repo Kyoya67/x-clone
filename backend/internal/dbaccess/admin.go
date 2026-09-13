@@ -1,32 +1,17 @@
-package dbadmin
+package dbaccess
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"net"
-	"net/url"
 	"os"
-	"strconv"
 )
-
-type RDSEndpoint struct {
-	Host string
-	Port int
-}
 
 var (
 	getRDSEndpoint  = GetRDSEndpoint
 	getSecretString = GetSecretString
 )
-
-func ConnectionURL(host string, port int, user, password, ca string) string {
-	u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/app", User: url.UserPassword(user, password)}
-	q := url.Values{"sslmode": {"verify-full"}, "sslrootcert": {ca}, "connect_timeout": {"10"}}
-	u.RawQuery = q.Encode()
-	return u.String()
-}
 
 func OpenAdministrator(ctx context.Context, instance, adminSecretID, caFile, localForwardEndpoint string) (*sql.DB, RDSEndpoint, error) {
 	var rdsEndpoint RDSEndpoint

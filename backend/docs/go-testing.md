@@ -276,13 +276,12 @@ go test ./cmd/db-user -coverprofile=/tmp/db-user-cover.out
 go tool cover -func=/tmp/db-user-cover.out
 ```
 
-## internal/dbadmin
+## internal/dbaccess
 
 DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポートフォワード時の接続先差し替えを検証する。
 
 `admin.go`では、次の観点をテストしている。
 
-- PostgreSQL接続URLを組み立てる
 - 明示した管理者Secretを使ってRDS接続情報を組み立てる
 - 管理者Secretが未指定の場合はエラーにする
 - RDS CAファイルが読めない場合はエラーにする
@@ -303,6 +302,7 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 
 `tunnel.go`では、次の観点をテストしている。
 
+- PostgreSQL接続URLを組み立てる
 - 実DBへ接続せずにDB接続ハンドルを作成する
 - 不正なDB接続URLを拒否する
 - SSMポートフォワード時もTLS検証先としてRDSホスト名を維持する
@@ -314,14 +314,14 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 
 | ファイル  | 関数                       | カバレッジ |
 | --------- | -------------------------- | ---------: |
-| admin.go  | ConnectionURL              |     100.0% |
-|           | OpenAdministrator          |      83.3% |
+| admin.go  | OpenAdministrator          |      83.3% |
 | aws.go    | awsConfig                  |     100.0% |
 |           | GetRDSEndpoint             |      92.3% |
 |           | CurrentSecretVersionExists |      90.9% |
 |           | GetSecretString            |      85.7% |
 |           | PutSecretString            |      85.7% |
-| tunnel.go | OpenDatabase               |     100.0% |
+| tunnel.go | ConnectionURL              |     100.0% |
+|           | OpenDatabase               |     100.0% |
 |           | configureLocalForward      |      93.3% |
 | 合計      | -                          |      90.1% |
 
@@ -329,8 +329,8 @@ DB管理処理では、AWS SDK・Secrets Manager・RDS接続設定・SSMポー�
 
 ```bash
 cd backend
-go test ./internal/dbadmin -coverprofile=/tmp/dbadmin-cover.out
-go tool cover -func=/tmp/dbadmin-cover.out
+go test ./internal/dbaccess -coverprofile=/tmp/dbaccess-cover.out
+go tool cover -func=/tmp/dbaccess-cover.out
 ```
 
 ## テストの実行

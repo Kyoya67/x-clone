@@ -1,34 +1,12 @@
-package dbadmin
+package dbaccess
 
 import (
 	"context"
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 )
-
-func TestConnectionURLBuildsPostgresURL(t *testing.T) {
-	databaseURL := ConnectionURL("db.example", 5432, "app_user", "p@ss/word", "/tmp/rds-ca.pem")
-
-	u, err := url.Parse(databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	password, ok := u.User.Password()
-	if u.Scheme != "postgres" ||
-		u.Host != "db.example:5432" ||
-		u.Path != "/app" ||
-		u.User.Username() != "app_user" ||
-		!ok ||
-		password != "p@ss/word" ||
-		u.Query().Get("sslmode") != "verify-full" ||
-		u.Query().Get("sslrootcert") != "/tmp/rds-ca.pem" ||
-		u.Query().Get("connect_timeout") != "10" {
-		t.Fatalf("unexpected database url: %s", databaseURL)
-	}
-}
 
 func TestOpenAdministratorUsesExplicitSecretWithoutRDSManagedSecret(t *testing.T) {
 	dir := t.TempDir()
