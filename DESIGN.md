@@ -191,7 +191,38 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ブラウザのJavaScriptへCognito tokenを渡さない。backendは認証済みユーザーIDを署名済みsessionとしてhttpOnly、Secure、SameSite=Lax Cookieへ保存し、以降のAPIリクエストではCookieからユーザーIDを復元する。
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 利用者
+    participant FE as Frontend
+    participant BFF as Backend (/auth/login, /auth/callback)
+    participant CO as Cognito Hosted UI
+    participant G as Google OAuth
+    participant API as API（内部）
+    participant RDS as RDS users
+
+    User->>FE: 「ログイン」押下
+    FE->>BFF: GET /auth/login
+    BFF->>CO: state/nonce/code_verifierをCookie化
+    BFF-->>FE: 302 Redirect -> https://x-clone-.../oauth2/authorize
+    FE->>G: OAuth同意画面
+    G-->>BFF: redirect_uriへ code と state を付与して戻る (/auth/callback)
+    BFF->>BFF: state/cookie検証、nonce/code_verifier復元
+    BFF->>CO: token endpointへ code 交換
+    CO-->>BFF: id_token + access_token
+    BFF->>API: ID token署名検証
+    API-->>BFF: sub, email, preferred_username
+    BFF->>RDS: user upsert（初回は新規作成）
+    RDS-->>BFF: user_id
+    BFF->>BFF: session署名Cookie発行
+    BFF-->>FE: 302 Redirect -> app post_login_url
+    FE->>API: 以降のAPIはCookie送信で認可
+```
+
 AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
+
+※この図はセッション復元フローを簡略化している。実装上は、`state/nonce/PKCE`は環境別prefix付きの一時Cookieで保存し、callback時に検証した後に即時破棄する。
 
 ## 5. CI/CD
 
@@ -346,3 +377,23 @@ erDiagram
 いいねは`post_likes`で管理し、`(post_id, user_id)`を複合主キーにすることで同じ投稿への重複いいねを防ぐ。フォロー・いいねの発生時には`notifications`へ通知を保存する。通知は`recipient_id`が通知を受け取るユーザー、`actor_id`が操作したユーザーを表し、`type`で`follow`と`like`を区別する。現時点では通知の既読・未読は管理せず、通知一覧は自分宛ての通知を新しい順で取得する。
 
 ## 7. 今後の拡張性や運用を見据えた懸念点
+
+- OAuthセッションの多端末同時運用（マルチセッション）
+  - 現在はAPI側sessionの上書き方式で単一端末運用を前提にしている。
+  - 将来的に「同じブラウザ内」「同一ユーザーの別デバイス」でも状態を失わせないため、サーバ側でセッション履歴を明示管理し、最終ログイン更新を可視化したい。
+  - 旧Cookie名残り（移行期間）と今後の新規prefix戦略が競合しない運用ルールが必要。
+- 通知基盤を機能拡張していく際の整合性
+  - 現在は通知の既読管理は未実装で、表示順序の安定性・重複排除に依存する。
+  - リプライ/リポスト実装時は「起点投稿」「被引用投稿」「返信ツリー」の通知ルールを明確化し、通知種別を拡張する必要がある。
+- 返信（リプライ）機能
+  - postsテーブルとルーティングは拡張可能だが、返信先UI、検索や表示ロジック、通知連動、ミュート/非表示制御が追加で必要。
+  - タイムラインのソート・取得制御で「通常/返信のみ」を切り分ける設計が必要。
+- リポスト機能
+  - 引用投稿・引用元保持・重複抑止の仕様を定義しないと、投稿表示で循環参照や無限表示が起きやすい。
+  - repost元の権限（元投稿削除、編集、非表示）と表示順の扱いは初期要件外だが事前に設計しておく必要がある。
+- 運用上のデプロイ観点
+  - task definition更新はCDで再起動されるが、stg/prdのトラフィック集中時はロールアウト速度とヘルスチェック待機がボトルネックになりやすい。
+  - 通知、ユーザー名変更、Cookie名変更などのユーザー体験影響があり、リリース時はログイン再試行導線を必ず検証する。
+- セキュリティ運用
+  - ログ監査は`AUTH_COOKIE_NAME_PREFIX`やキー更新時の旧Cookie残存を前提に、失効時の再ログイン率をメトリクス化したい。
+  - Google OIDCのクライアント情報ローテーション（secret/version）に対し、Terraform変数・Secrets更新とCDパイプラインを分離し、事故時は手動ロールバックが可能な状態にする。

@@ -99,6 +99,15 @@ AWS初回構築では、ECRへのDockerイメージpush、DBユーザー作成�
 | マイグレーション | `db-migrator` ECS単発タスクで実行 |
 | DB | RDS PostgreSQL |
 
+## 環境別デプロイURL
+
+| 環境 | フロントエンド | API | 備考 |
+| ---- | ---- | ---- | ---- |
+| stg | https://stg.x-clone.kyo8.dev | https://api-v1.stg.x-clone.kyo8.dev | stg向けの開発検証環境 |
+| prd | https://x-clone.kyo8.dev | https://api-v1.x-clone.kyo8.dev | 本番想定環境 |
+
+stg・prdの各APIは、Cognito Hosted UI経由でのGoogleログインを前提にしています。
+
 CI/CDの設計は[DESIGN.md](./DESIGN.md)を参照してください。
 
 ## 設計資料
