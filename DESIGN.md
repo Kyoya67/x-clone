@@ -210,6 +210,8 @@ CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行�
 
 developはstg環境、mainはprd環境へデプロイする。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
 
+CDは`workflow_run`で起動するため、CD workflow自体はdefault branch上で実行される。環境判定に`github.ref_name`を使うとdevelop pushでもmain扱いになる可能性があるため、`workflow_run`では`github.event.workflow_run.head_branch`だけでstg/prdを判定する。手動実行時は`workflow_dispatch`の入力でstg/prdを明示選択する。
+
 | 種別 | 名前 | 用途 |
 | ---- | ---- | ---- |
 | Secret | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN |
