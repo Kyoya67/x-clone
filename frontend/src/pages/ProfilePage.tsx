@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { fetchTimeline } from '../api/timeline'
+import { Feed } from '../components/Feed'
 import { ContentPage } from './ContentPage'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
+import { Post } from '../types/post'
+import { avatarColorClass } from '../utils/avatarColor'
 
 export function ProfilePage() {
   const auth = useOptionalAuth()
@@ -10,15 +14,46 @@ export function ProfilePage() {
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const bio = user?.bio ?? currentUser.bio
   const avatar = displayName.slice(0, 1) || 'U'
+  const avatarClass = avatarColorClass(user?.id ?? user?.handle ?? currentUser.id)
   const [form, setForm] = useState({ handle, displayName, bio })
   const [message, setMessage] = useState('')
   const [isEditing, setIsEditing] = useState(user?.needsProfileSetup ?? false)
   const [isSaving, setIsSaving] = useState(false)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+  const [postsError, setPostsError] = useState('')
 
   useEffect(() => {
     setForm({ handle, displayName, bio })
     setIsEditing(user?.needsProfileSetup ?? false)
   }, [handle, displayName, bio, user?.needsProfileSetup])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPosts = async () => {
+      setIsLoadingPosts(true)
+      setPostsError('')
+      try {
+        const timelinePosts = await fetchTimeline('for-you')
+        if (!cancelled) {
+          setPosts(timelinePosts.filter((post) => post.handle === `@${handle}`))
+        }
+      } catch {
+        if (!cancelled) {
+          setPosts([])
+          setPostsError('ポストの取得に失敗しました。時間をおいて再度お試しください。')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPosts(false)
+      }
+    }
+
+    void loadPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [handle])
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault()
@@ -47,10 +82,19 @@ export function ProfilePage() {
     }
   }
 
+  const toggleLike = (id: string) =>
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === id
+          ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
+          : post,
+      ),
+    )
+
   return (
     <ContentPage title="プロフィール">
       <div className="profile-card">
-        <span className="avatar avatar-blue profile-avatar">{avatar}</span>
+        <span className={`avatar ${avatarClass} profile-avatar`}>{avatar}</span>
         {isEditing ? (
           <form className="profile-form" onSubmit={saveProfile}>
             <label>
@@ -108,6 +152,14 @@ export function ProfilePage() {
           </>
         )}
       </div>
+      {postsError && <p role="alert">{postsError}</p>}
+      {isLoadingPosts ? (
+        <p role="status">ポストを読み込んでいます。</p>
+      ) : posts.length === 0 ? (
+        <p>表示する投稿はありません。</p>
+      ) : (
+        <Feed posts={posts} onToggleLike={toggleLike} currentUserHandle={handle} />
+      )}
     </ContentPage>
   )
 }

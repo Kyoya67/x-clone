@@ -12,12 +12,12 @@
 │   ├── issue: 投稿機能をバックエンドから実装する
 │   ├── issue: フォロー機能をフロントエンドからデータベースまで実装する
 │   └── issue: タイムライン機能を実装する
-└── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
-    ├── issue: AWS stg環境を構築し、ECSでAPI起動とマイグレーションを確認する
-    ├── issue: AWSリソースの役割・依存関係・命名を整理する
-    ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
-    ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
-    └── issue: ECRへのイメージpushとECSへの反映を自動化する
+├── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
+│   ├── issue: AWS stg環境を構築し、ECSでAPI起動とマイグレーションを確認する
+│   ├── issue: AWSリソースの役割・依存関係・命名を整理する
+│   ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
+│   ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
+│   └── issue: ECRへのイメージpushとECSへの反映を自動化する
 └── Milestone 3: 本番品質化
     └── issue: Google OIDCによるログイン機能を実装する
 ```
@@ -172,18 +172,20 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ### CDのAWS認証方式
 
-| 採用 | 選択肢                 | 役割                         | 判断理由                                                                                                                                 |
-| ---- | ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| ⭕️   | GitHub OIDC            | GitHub ActionsからAWS API実行 | 長期AWSアクセスキーをGitHub Secretsへ保存せず、一時認証でAmplify・ECR・ECSへのデプロイを実行できるため採用する。                         |
-| —    | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | 実装は単純だが、長期キーをGitHub Secretsで管理する必要があるため採用しない。                                                             |
+| 採用 | 選択肢                  | 役割                          | 判断理由                                                                                                         |
+| ---- | ----------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | GitHub OIDC             | GitHub ActionsからAWS API実行 | 長期AWSアクセスキーをGitHub Secretsへ保存せず、一時認証でAmplify・ECR・ECSへのデプロイを実行できるため採用する。 |
+| —    | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | 実装は単純だが、長期キーをGitHub Secretsで管理する必要があるため採用しない。                                     |
+
+## 5. 認証・認可
 
 ### ログイン方式
 
-| 採用 | 選択肢 | 役割 | 判断理由 |
-| ---- | ------ | ---- | -------- |
-| ⭕️   | Cognito Hosted UI + Google OIDC | 利用者ログイン | Googleアカウントで実在ユーザーを確認でき、認証画面・OAuth/OIDC連携をアプリ側で自前実装しなくてよいため採用する。 |
-| —    | アプリ独自のメール・パスワード認証 | 利用者ログイン | パスワード保存、リセット、MFAなどの実装・運用責務が増えるため採用しない。 |
-| —    | 独自WebAuthn/パスキー | 利用者ログイン | セキュアだが実装範囲が大きい。今回はGoogle OIDCを先に実装し、パスキーは後続検討にする。 |
+| 採用 | 選択肢                             | 役割           | 判断理由                                                                                                         |
+| ---- | ---------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | Cognito Hosted UI + Google OIDC    | 利用者ログイン | Googleアカウントで実在ユーザーを確認でき、認証画面・OAuth/OIDC連携をアプリ側で自前実装しなくてよいため採用する。 |
+| —    | アプリ独自のメール・パスワード認証 | 利用者ログイン | パスワード保存、リセット、MFAなどの実装・運用責務が増えるため採用しない。                                        |
+| —    | 独自WebAuthn/パスキー              | 利用者ログイン | セキュアだが実装範囲が大きい。今回はGoogle OIDCを先に実装し、パスキーは後続検討にする。                          |
 
 ### BFFでのセッション管理
 
@@ -191,58 +193,106 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ブラウザのJavaScriptへCognito tokenを渡さない。backendは認証済みユーザーIDを署名済みsessionとしてhttpOnly、Secure、SameSite=Lax Cookieへ保存し、以降のAPIリクエストではCookieからユーザーIDを復元する。
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 利用者
+    participant FE as Frontend
+    participant BFF as Backend (/auth/login, /auth/callback)
+    participant CO as Cognito Hosted UI
+    participant G as Google OAuth
+    participant API as API（内部）
+    participant RDS as RDS users
+
+    User->>FE: 「ログイン」押下
+    FE->>BFF: GET /auth/login
+    BFF->>CO: state/nonce/code_verifierをCookie化
+    BFF-->>FE: 302 Redirect -> https://x-clone-.../oauth2/authorize
+    FE->>G: OAuth同意画面
+    G-->>BFF: redirect_uriへ code と state を付与して戻る (/auth/callback)
+    BFF->>BFF: state/cookie検証、nonce/code_verifier復元
+    BFF->>CO: token endpointへ code 交換
+    CO-->>BFF: id_token + access_token
+    BFF->>API: ID token署名検証
+    API-->>BFF: sub, email, preferred_username
+    BFF->>RDS: user upsert（初回は新規作成）
+    RDS-->>BFF: user_id
+    BFF->>BFF: session署名Cookie発行
+    BFF-->>FE: 302 Redirect -> app post_login_url
+    FE->>API: 以降のAPIはCookie送信で認可
+```
+
+※この図はセッション復元フローを簡略化している。実装上は、`state/nonce/PKCE`は環境別prefix付きの一時Cookieで保存し、callback時に検証した後に即時破棄する。
+
+### 認可の扱い
+
+認証済みユーザーIDは、backendのMiddlewareでsession Cookieから復元し、contextへ格納する。投稿作成、フォロー、いいね、通知取得、プロフィール更新など、ログインユーザーに依存するAPIはcontext上のユーザーIDを基準に処理する。
+
+frontendは認可判断の最終責務を持たない。画面上ではログイン状態に応じて表示を切り替えるが、実際に操作を許可するかどうかはbackend側で判断する。
+
+### Cookieと環境分離
+
+stgとprdは別ドメインで運用するが、認証Cookieの衝突や旧Cookie残存による不安定化を避けるため、環境別のCookie名prefixを使う。
+
+| 環境 | Cookie prefix | 用途                                 |
+| ---- | ------------- | ------------------------------------ |
+| stg  | `x_clone_stg` | stg用session CookieとOAuth一時Cookie |
+| prd  | `x_clone_prd` | prd用session CookieとOAuth一時Cookie |
+
+移行期間中は旧session Cookie名も読み取れるようにし、不正なsessionを検出した場合やログアウト時に旧Cookieも削除する。
+
 AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
 
-## 5. CI/CD
+## 6. CI/CD
 
 ### 全体方針
 
 CIはPull Request更新時に実行し、CDはPull Requestがmergeされてdevelop/mainへpushされた時に実行する。PR上でCIを必須にすることで、CIが失敗した変更をmergeしない運用にする。
 
-| Workflow | 起動条件 | 主な処理 |
-| -------- | -------- | -------- |
-| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request | frontendのformat:check・test・build |
-| .github/workflows/backend-ci.yml | backend変更を含むPull Request | backendのgofmt・go test・go vet |
-| .github/workflows/frontend-cd.yml | frontend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
-| .github/workflows/backend-cd.yml | backend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+| Workflow                          | 起動条件                                                             | 主な処理                                                                                                            |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request                                       | frontendのformat:check・test・build                                                                                 |
+| .github/workflows/backend-ci.yml  | backend変更を含むPull Request                                        | backendのgofmt・go test・go vet                                                                                     |
+| .github/workflows/frontend-cd.yml | frontend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ                                |
+| .github/workflows/backend-cd.yml  | backend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能  | merge後のcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
 
 ### 環境切り替え
 
 developはstg環境、mainはprd環境へデプロイする。CDはdevelop/mainへのpushで起動するため、環境判定には`github.ref_name`を使う。手動実行時は`workflow_dispatch`の入力でstg/prdを明示選択する。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
 
-| 種別 | 名前 | 用途 |
-| ---- | ---- | ---- |
-| Secret | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN |
-| Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
-| Variable | AWS_REGION | AWSリージョン |
-| Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD | 環境別Amplify AppのID |
-| Variable | AMPLIFY_BRANCH_NAME_STG / AMPLIFY_BRANCH_NAME_PRD | 環境別Amplify Branch名 |
-| Variable | ECS_CLUSTER_NAME | ECSクラスター名 |
-| Variable | ECS_SERVICE_NAME | ECSサービス名 |
-| Variable | API_TASK_FAMILY | APIタスク定義family |
-| Variable | MIGRATION_TASK_FAMILY | マイグレーションタスク定義family |
-| Variable | API_ECR_REPOSITORY | API用ECRリポジトリ名 |
-| Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名 |
-| Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD | 環境別API health check URL |
-| Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD | サブネット・SG取得用の環境名 |
+| 種別     | 名前                                              | 用途                                                |
+| -------- | ------------------------------------------------- | --------------------------------------------------- |
+| Secret   | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD               | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN  |
+| Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD           | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
+| Variable | AWS_REGION                                        | AWSリージョン                                       |
+| Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD           | 環境別Amplify AppのID                               |
+| Variable | AMPLIFY_BRANCH_NAME_STG / AMPLIFY_BRANCH_NAME_PRD | 環境別Amplify Branch名                              |
+| Variable | ECS_CLUSTER_NAME                                  | ECSクラスター名                                     |
+| Variable | ECS_SERVICE_NAME                                  | ECSサービス名                                       |
+| Variable | API_TASK_FAMILY                                   | APIタスク定義family                                 |
+| Variable | MIGRATION_TASK_FAMILY                             | マイグレーションタスク定義family                    |
+| Variable | API_ECR_REPOSITORY                                | API用ECRリポジトリ名                                |
+| Variable | MIGRATION_ECR_REPOSITORY                          | マイグレーション用ECRリポジトリ名                   |
+| Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD           | 環境別API health check URL                          |
+| Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD                   | サブネット・SG取得用の環境名                        |
 
 GitHub Actionsには次の値を設定する。
 
-| 種別 | 名前 | stg | prd |
-| ---- | ---- | --- | --- |
-| Secret | AWS_ROLE_ARN_* | github-actions-cdロールARN | github-actions-cdロールARN |
-| Variable | AWS_ACCOUNT_ID_* | 089244387218 | 517037063215 |
-| Variable | AMPLIFY_APP_ID_* | d2judt2uwax9h6 | d1o16modss0jxj |
-| Variable | API_HEALTH_URL_* | https://api-v1.stg.x-clone.kyo8.dev/health | https://api-v1.x-clone.kyo8.dev/health |
-| Variable | DEPLOY_ENV_* | stg | prd |
-| Variable | AWS_REGION | ap-northeast-1 | ap-northeast-1 |
-| Variable | AMPLIFY_BRANCH_NAME_* | stg | prd |
-| Variable | ECS_CLUSTER_NAME | x-clone | x-clone |
-| Variable | ECS_SERVICE_NAME | api | api |
-| Variable | API_TASK_FAMILY | api | api |
-| Variable | MIGRATION_TASK_FAMILY | db-migrator | db-migrator |
-| Variable | API_ECR_REPOSITORY | api | api |
-| Variable | MIGRATION_ECR_REPOSITORY | db-migrator | db-migrator |
+| 種別     | 名前                     | stg                                        | prd                                    |
+| -------- | ------------------------ | ------------------------------------------ | -------------------------------------- |
+| Secret   | AWS*ROLE_ARN*\*          | github-actions-cdロールARN                 | github-actions-cdロールARN             |
+| Variable | AWS*ACCOUNT_ID*\*        | 089244387218                               | 517037063215                           |
+| Variable | AMPLIFY*APP_ID*\*        | d2judt2uwax9h6                             | d1o16modss0jxj                         |
+| Variable | API*HEALTH_URL*\*        | https://api-v1.stg.x-clone.kyo8.dev/health | https://api-v1.x-clone.kyo8.dev/health |
+| Variable | DEPLOY*ENV*\*            | stg                                        | prd                                    |
+| Variable | AWS_REGION               | ap-northeast-1                             | ap-northeast-1                         |
+| Variable | AMPLIFY*BRANCH_NAME*\*   | stg                                        | prd                                    |
+| Variable | ECS_CLUSTER_NAME         | x-clone                                    | x-clone                                |
+| Variable | ECS_SERVICE_NAME         | api                                        | api                                    |
+| Variable | API_TASK_FAMILY          | api                                        | api                                    |
+| Variable | MIGRATION_TASK_FAMILY    | db-migrator                                | db-migrator                            |
+| Variable | API_ECR_REPOSITORY       | api                                        | api                                    |
+| Variable | MIGRATION_ECR_REPOSITORY | db-migrator                                | db-migrator                            |
 
 ### backend CDの実行順序
 
@@ -261,7 +311,7 @@ build-images
 update-api-service
 ```
 
-## 6. システム構成とデータモデル
+## 7. システム構成とデータモデル
 
 ### バックエンドの構成
 
@@ -345,4 +395,18 @@ erDiagram
 
 いいねは`post_likes`で管理し、`(post_id, user_id)`を複合主キーにすることで同じ投稿への重複いいねを防ぐ。フォロー・いいねの発生時には`notifications`へ通知を保存する。通知は`recipient_id`が通知を受け取るユーザー、`actor_id`が操作したユーザーを表し、`type`で`follow`と`like`を区別する。現時点では通知の既読・未読は管理せず、通知一覧は自分宛ての通知を新しい順で取得する。
 
-## 7. 今後の拡張性や運用を見据えた懸念点
+## 8. 今後の拡張性や運用を見据えた懸念点
+
+- OAuthセッションの多端末同時運用（マルチセッション）
+  - 現在はAPI側sessionの上書き方式で単一端末運用を前提にしている。
+  - リロードを繰り返した際にAPI成功/失敗が不安定になる事象が残っており、Cookie名分離だけでは根本原因を完全には断定できていない。
+  - 将来的に「同じブラウザ内」「同一ユーザーの別デバイス」でも状態を失わせないため、サーバ側でセッション履歴を明示管理し、最終ログイン更新を可視化したい。
+  - 旧Cookie名残り（移行期間）と今後の新規prefix戦略が競合しない運用ルールが必要。
+- 通知の既読管理
+  - 現在は通知の既読管理は未実装で、表示順序の安定性・重複排除に依存する。
+- 返信（リプライ）機能
+  - postsテーブルとルーティングは拡張可能だが、返信先UI、検索や表示ロジック、通知連動、ミュート/非表示制御が追加で必要。
+  - タイムラインのソート・取得制御で「通常/返信のみ」を切り分ける設計が必要。
+- リポスト機能
+  - 引用投稿・引用元保持・重複抑止の仕様を定義しないと、投稿表示で循環参照や無限表示が起きやすい。
+  - repost元の権限（元投稿削除、編集、非表示）と表示順の扱いは初期要件外だが事前に設計しておく必要がある。

@@ -9,12 +9,14 @@ import { TimelineHeader } from '../components/TimelineHeader'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
 import { Post } from '../types/post'
+import { avatarColorClass } from '../utils/avatarColor'
 
 export function TimelinePage() {
   const auth = useOptionalAuth()
   const user = auth?.user
   const displayName = user?.displayName ?? currentUser.displayName
   const avatar = displayName.slice(0, 1) || 'U'
+  const avatarClass = avatarColorClass(user?.id ?? user?.handle ?? currentUser.id)
   const [posts, setPosts] = useState<Post[]>([])
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('おすすめ')
@@ -97,7 +99,13 @@ export function TimelinePage() {
     <PageLayout>
       <div className="timeline">
         <TimelineHeader activeTab={activeTab} onTabChange={setActiveTab} />
-        <Composer avatar={avatar} draft={draft} onDraftChange={setDraft} onPublish={publish} />
+        <Composer
+          avatar={avatar}
+          avatarClass={avatarClass}
+          draft={draft}
+          onDraftChange={setDraft}
+          onPublish={publish}
+        />
         {publishError && <p role="alert">{publishError}</p>}
         {timelineError && <p role="alert">{timelineError}</p>}
         {isLoading ? (
@@ -105,7 +113,7 @@ export function TimelinePage() {
         ) : posts.length === 0 ? (
           <p>表示する投稿はありません。</p>
         ) : (
-          <Feed posts={posts} onToggleLike={toggleLike} />
+          <Feed posts={posts} onToggleLike={toggleLike} currentUserHandle={user?.handle} />
         )}
       </div>
     </PageLayout>

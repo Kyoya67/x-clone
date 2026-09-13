@@ -1,4 +1,5 @@
 import { Post } from '../types/post'
+import { avatarColorClass } from '../utils/avatarColor'
 
 type TimelinePostResponse = {
   id: string
@@ -34,6 +35,7 @@ function toPost(post: TimelinePostResponse): Post {
     body: post.content,
     time: formatPostTime(post.createdAt),
     avatar: post.author.displayName.slice(0, 1),
+    avatarClass: avatarColorClass(post.author.id || post.author.handle),
     likes: 0,
     replies: 0,
     reposts: 0,
