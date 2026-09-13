@@ -85,6 +85,22 @@ Secretの形式変更に合わせて、新しいAPIイメージのビルド・pu
 
 dbadmin用SecretとRDS自動管理の解除設定は追加済み。パスワードは実行時に渡し、Stateに残さず同じ値をSecretとRDSへ設定する。更新時は両方で共通のパスワード版番号を増やす。失敗時の再実行には同じパスワードを使う。
 
+dbadminのパスワードは、Secrets ManagerからTerraformで読み戻さない。`data "aws_secretsmanager_secret_version"`でSecret値を読むと、値がTerraform Stateに残る可能性があるため。代わりに、同じ実行時入力値をRDSとSecrets Managerの両方へwrite-onlyで渡す。
+
+```mermaid
+flowchart LR
+  ENV[".env / 実行時環境変数<br/>TF_VAR_dbadmin_password"]
+  TF["Terraform<br/>ephemeral variable"]
+  RDS["RDS<br/>dbadmin password_wo"]
+  SM["Secrets Manager<br/>db/dbadmin secret_string_wo"]
+  STATE["Terraform State<br/>パスワード値は保存しない"]
+
+  ENV --> TF
+  TF --> RDS
+  TF --> SM
+  TF -. "値は永続化しない" .-> STATE
+```
+
 infrastructure/stg/.env.exampleを.envへコピーし、2つのTF_VAR値を設定する。同ディレクトリのmake plan・make applyが.envを読み込む。.envはGit管理対象外だが、ローカルには平文で保存される。terraformコマンドを直接実行する場合は自動では読み込まない。
 
 ユーザーによるRDS変更のapplyは完了。管理コマンドはdb/dbadminを使用する。APIタスクはdb/app_user、マイグレーションタスクはdb/migration_userを参照する設定。
