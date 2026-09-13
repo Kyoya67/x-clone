@@ -1,0 +1,10 @@
+variable "vpc_id" {
+  type        = string
+  description = "VPC to which the internet gateway is attached."
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Tags applied to the internet gateway."
+  default     = {}
+}

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"regexp"
 	"testing"
@@ -80,6 +81,28 @@ func TestFollowRepositoryUnfollow(t *testing.T) {
 	}
 }
 
+func TestFollowRepositoryUnfollowReturnsNoRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM follows
+		WHERE follower_id = $1 AND followee_id = $2`)).
+		WithArgs("follower-1", "followee-1").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	repository := NewFollowRepository(db)
+	err = repository.Unfollow(context.Background(), "follower-1", "followee-1")
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("expected no rows error, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestFollowRepositoryUnfollowReturnsDatabaseError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -127,6 +150,93 @@ func TestFollowRepositoryListFolloweeIDs(t *testing.T) {
 	}
 	if len(followeeIDs) != 2 || followeeIDs[0] != "followee-1" || followeeIDs[1] != "followee-2" {
 		t.Fatalf("unexpected followee IDs: %v", followeeIDs)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFollowRepositoryListFolloweeIDsReturnsQueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT followee_id
+		FROM follows
+		WHERE follower_id = $1
+		ORDER BY created_at ASC`)).
+		WithArgs("follower-1").
+		WillReturnError(errors.New("database unavailable"))
+
+	repository := NewFollowRepository(db)
+	_, err = repository.ListFolloweeIDs(context.Background(), "follower-1")
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected application error, got %v", err)
+	}
+	if appErr.ErrCode != string(apperrors.DependencyUnavailable) {
+		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFollowRepositoryListFolloweeIDsReturnsScanError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT followee_id
+		FROM follows
+		WHERE follower_id = $1
+		ORDER BY created_at ASC`)).
+		WithArgs("follower-1").
+		WillReturnRows(sqlmock.NewRows([]string{"followee_id"}).AddRow(nil))
+
+	repository := NewFollowRepository(db)
+	_, err = repository.ListFolloweeIDs(context.Background(), "follower-1")
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected application error, got %v", err)
+	}
+	if appErr.ErrCode != string(apperrors.DependencyUnavailable) {
+		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFollowRepositoryListFolloweeIDsReturnsRowsError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{"followee_id"}).
+		AddRow("followee-1").
+		RowError(0, errors.New("row error"))
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT followee_id
+		FROM follows
+		WHERE follower_id = $1
+		ORDER BY created_at ASC`)).
+		WithArgs("follower-1").
+		WillReturnRows(rows)
+
+	repository := NewFollowRepository(db)
+	_, err = repository.ListFolloweeIDs(context.Background(), "follower-1")
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected application error, got %v", err)
+	}
+	if appErr.ErrCode != string(apperrors.DependencyUnavailable) {
+		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

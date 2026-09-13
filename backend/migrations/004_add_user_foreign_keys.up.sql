@@ -1,14 +1,14 @@
-ALTER TABLE posts
+ALTER TABLE public.posts
     ADD CONSTRAINT posts_author_id_fkey
-    FOREIGN KEY (author_id) REFERENCES users (id)
+    FOREIGN KEY (author_id) REFERENCES public.users (id)
     ON DELETE RESTRICT;
 
-ALTER TABLE follows
+ALTER TABLE public.follows
     ADD CONSTRAINT follows_follower_id_fkey
-    FOREIGN KEY (follower_id) REFERENCES users (id)
+    FOREIGN KEY (follower_id) REFERENCES public.users (id)
     ON DELETE CASCADE;
 
-ALTER TABLE follows
+ALTER TABLE public.follows
     ADD CONSTRAINT follows_followee_id_fkey
-    FOREIGN KEY (followee_id) REFERENCES users (id)
+    FOREIGN KEY (followee_id) REFERENCES public.users (id)
     ON DELETE CASCADE;

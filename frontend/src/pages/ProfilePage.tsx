@@ -1,13 +1,14 @@
 import { ContentPage } from './ContentPage'
+import { currentUser } from '../config/currentUser'
 
 export function ProfilePage() {
   return (
     <ContentPage title="プロフィール" description="あなたのプロフィールとポストを表示します。">
       <div className="profile-card">
-        <span className="avatar avatar-blue profile-avatar">太</span>
-        <h2>田中 太郎</h2>
-        <p>@taro_tanaka</p>
-        <p>プロダクト開発とユーザー体験について考えています。</p>
+        <span className="avatar avatar-blue profile-avatar">{currentUser.avatar}</span>
+        <h2>{currentUser.displayName}</h2>
+        <p>{currentUser.handle}</p>
+        <p>{currentUser.bio}</p>
       </div>
     </ContentPage>
   )

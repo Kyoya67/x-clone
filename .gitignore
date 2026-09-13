@@ -1,5 +1,26 @@
 .DS_Store
 
+# Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/tsconfig.tsbuildinfo
+
+# Backend
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Infrastructure / Terraform
+infrastructure/**/.env
+infrastructure/**/.env.*
+!infrastructure/**/.env.example
+infrastructure/**/.terraform/*
+infrastructure/**/*.tfstate
+infrastructure/**/*.tfstate.*
+infrastructure/**/*.tfvars
+infrastructure/**/*.tfvars.json
+infrastructure/**/crash.log
+infrastructure/**/crash.*.log
+infrastructure/stg/moved.tf
+# Local environment files
+**/.envrc

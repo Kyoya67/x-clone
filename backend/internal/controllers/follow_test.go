@@ -102,6 +102,33 @@ func TestFollowControllerListFollowing(t *testing.T) {
 	}
 }
 
+func TestFollowControllerListFollowingReturnsServiceError(t *testing.T) {
+	controller := NewFollowController(&fakeFollowService{err: errors.New("secret database details")})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+
+	controller.ListFollowing(recorder, request)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+	}
+	if strings.Contains(recorder.Body.String(), "secret database details") {
+		t.Fatal("internal error was exposed")
+	}
+}
+
+func TestFollowControllerListFollowingHandlesEncodeError(t *testing.T) {
+	controller := NewFollowController(&fakeFollowService{})
+	recorder := &failingResponseWriter{header: http.Header{}}
+	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+
+	controller.ListFollowing(recorder, request)
+
+	if recorder.status != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.status)
+	}
+}
+
 func TestFollowControllerRejectsInvalidUserID(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{})
 	recorder := httptest.NewRecorder()
@@ -198,4 +225,21 @@ func TestFollowControllerUnfollowReturnsValidationError(t *testing.T) {
 
 func withUserID(request *http.Request, userID string) *http.Request {
 	return mux.SetURLVars(request, map[string]string{"userId": userID})
+}
+
+type failingResponseWriter struct {
+	header http.Header
+	status int
+}
+
+func (w *failingResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *failingResponseWriter) Write(_ []byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func (w *failingResponseWriter) WriteHeader(status int) {
+	w.status = status
 }

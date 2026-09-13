@@ -2,23 +2,27 @@
 
 ## 1. 開発方針
 
-開発の進捗は、GitHub Milestoneで管理する。対象となるIssueを同じMilestoneに紐づけ、Milestoneの進捗率で全体の達成状況を把握する。
-
-```
+```text
 課題全体の完成
-├── Milestone 1: ローカル開発基盤の構築
-│   └── 複数のIssue（フロントエンド、バックエンド、DB、APIなど）
-├── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
-│   └── 複数のIssue（AWS、Terraform、CI/CDなど）
-├── Milestone 3: 必須機能の実装
-│   └── 複数のIssue（ログイン、投稿、フォロー、タイムラインなど）
-└── Milestone 4: 本番環境の構築・運用準備（予定）
-    └── 複数のIssue（本番環境、セキュリティ、監視、バックアップなど）
+├── Milestone 1: 初期実装・ローカル開発基盤
+│   ├── issue: フロントエンドの初期構成と画面を実装する
+│   ├── issue: Goバックエンドの初期構成を作成する
+│   ├── issue: データベース環境を構築する
+│   ├── issue: バックエンドAPIの基本構成を整備する
+│   ├── issue: 投稿機能をバックエンドから実装する
+│   ├── issue: フォロー機能をフロントエンドからデータベースまで実装する
+│   └── issue: タイムライン機能を実装する
+└── Milestone 2: Terraform・CI/CDを含むデプロイ基盤の構築
+    ├── issue: AWS stg環境を構築し、ECSでAPI起動とマイグレーションを確認する
+    ├── issue: AWSリソースの役割・依存関係・命名を整理する
+    ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
+    ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
+    └── issue: ECRへのイメージpushとECSへの反映を自動化する
 ```
 
 Milestoneは関連するIssueを段階ごとにまとめ、Issueは個別の作業を管理する。
 
-Issueごとに `develop` ブランチから作業ブランチを作成し、作業完了後に `develop` へのPull Requestを作成する。各Issueの変更を `develop` に統合し、Milestoneが完了した時点で `develop` から `main` へのPull Requestを作成する。
+Issueごとに`develop`ブランチから作業ブランチを作成し、作業完了後に`develop`へのPull Requestを作成する。各Issueの変更を`develop`に統合し、必要な単位で`main`へ反映する。
 
 ## 2. AIの活用方針
 
@@ -120,6 +124,15 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 | ⭕️   | Vitest | Viteと設定やモジュール変換の考え方を共有しやすい | 今回のVite構成に合わせやすいため採用                                     |
 | —    | Jest   | Reactを含むエコシステムで実績と情報量が多い      | Viteとは別に変換設定などを整える必要があり、今回はVitestより設定が増える |
 
+### フロントエンドの配信方式
+
+| 採用 | 選択肢                   | 役割                      | 判断理由                                                                                                                                                                                        |
+| ---- | ------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | Amplify                  | フロントエンド配信・CI/CD | React + ViteのSPAを簡単に公開でき、GitHub連携による自動ビルド・デプロイ、PRプレビュー、独自ドメイン設定をまとめて扱える。細かな配信制御よりも、stg公開とAPI疎通確認を早く進めることを優先する。 |
+| —    | CloudFront + S3 + Lambda | フロントエンド配信基盤    | 柔軟性が高く、CDNやLambda@Edgeで細かな制御ができる一方、S3、CloudFront、IAM、キャッシュ、CI/CDを個別に設計・管理する必要があり、今回のSPA公開には重い。                                         |
+| —    | Vercel                   | フロントエンド配信・CI/CD | デプロイやPRプレビューは簡単だが、AWS外のサービスになる。今回はAWS上の環境との統合を優先するため採用しない。                                                                                    |
+| —    | Firebase Hosting         | フロントエンド配信        | 簡単なデプロイと高速CDNを利用できるが、Googleサービス寄りの構成になる。今回はAWSリソースとの連携を優先するため採用しない。                                                                      |
+
 ### バックエンド
 
 | 採用 | 選択肢                   | 役割             | 判断理由                                                                                                            |
@@ -131,18 +144,108 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 ### データベース
 
-| 観点           | PostgreSQL                                         | MySQL                                                |
-| -------------- | -------------------------------------------------- | ---------------------------------------------------- |
-| データ整合性   | 外部キー、制約、トランザクションを厳密に扱いやすい | 外部キー、制約、トランザクションに対応               |
-| クエリ・拡張性 | 複雑なJOIN、集約、ウィンドウ関数、JSONBなどが強い  | 一般的なCRUDやJOINに強く、シンプルな構成で扱いやすい |
-| 型・機能       | 配列、JSONB、全文検索など組み込み機能が豊富        | JSON、全文検索などを提供し、用途によっては十分       |
-| 運用           | AWS RDSなどのマネージドサービスで運用できる        | AWS RDSなどのマネージドサービスで運用できる          |
-| ローカル開発   | Docker Composeで再現しやすい                       | Docker Composeで再現しやすい                         |
-| Goとの接続     | `pgx`などのドライバを利用できる                    | `go-sql-driver/mysql`などを利用できる                |
+| 採用 | 選択肢     | 役割     | 判断理由                                                                                              |
+| ---- | ---------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| ⭕️   | PostgreSQL | アプリDB | 外部キー、制約、トランザクションを厳密に扱いやすい。JOIN、集約、JSONBなどの機能も豊富で拡張しやすい。 |
+| —    | MySQL      | アプリDB | 一般的なCRUD中心のサービスでは十分な選択肢だが、今回はPostgreSQLの型・クエリ・拡張性を優先した。      |
 
-MySQLは、一般的なCRUD中心のサービスや既存の運用知見を活用する場合に十分な選択肢である。一方、今回は投稿・ユーザー・フォローの関連データをRDBで管理し、タイムライン取得や将来の検索・分析機能で複雑なクエリを扱う可能性があるため、PostgreSQLの機能と拡張性を優先した。
+### インフラ基盤
 
-## 5. システム構成とデータモデル
+| 採用 | 選択肢          | 役割         | 判断理由                                                                                                                     |
+| ---- | --------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | AWS             | クラウド基盤 | 課題でパブリッククラウドへのデプロイを考慮する必要があり、ECS、RDS、ECR、Secrets Managerなどを一つのクラウド内で構成できる。 |
+| —    | Google Cloud    | クラウド基盤 | Cloud RunやCloud SQLなどで同等構成は可能だが、今回はAWSの学習・検証を優先する。                                              |
+| —    | Azure           | クラウド基盤 | コンテナ実行やDBのマネージドサービスは利用できるが、今回の検証対象から外す。                                                 |
+| —    | Heroku / Render | PaaS         | 構築は簡単だが、VPC、IAM、セキュリティグループ、RDS相当の構成管理を学習・検証しづらい。                                      |
+
+### IaC
+
+| 採用 | 選択肢             | 役割     | 判断理由                                                                                                                    |
+| ---- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | Terraform          | IaC      | AWSリソースを宣言的に管理でき、クラウドやサービスをまたいだ構成にも対応しやすい。Stateにより差分確認と再作成もしやすい。    |
+| —    | AWS CloudFormation | IaC      | AWS純正で統合度は高いが、記述量が増えやすく、今回はTerraformの汎用性を優先した。                                            |
+| —    | AWS CDK            | IaC      | プログラミング言語で抽象化できる一方、生成されるCloudFormationの理解も必要になるため、今回はTerraformでリソースを明示する。 |
+| —    | Pulumi             | IaC      | GoやTypeScriptで書けるが、今回の目的ではTerraformの情報量と学習効果を優先した。                                             |
+| —    | 手動構築           | 構築方法 | 初期検証は速いが、再現性が低く、変更履歴やレビューが残りにくいため採用しない。                                              |
+
+### CDのAWS認証方式
+
+| 採用 | 選択肢                 | 役割                         | 判断理由                                                                                                                                 |
+| ---- | ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| ⭕️   | GitHub OIDC            | GitHub ActionsからAWS API実行 | 長期AWSアクセスキーをGitHub Secretsへ保存せず、一時認証でAmplify・ECR・ECSへのデプロイを実行できるため採用する。                         |
+| —    | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | 実装は単純だが、長期キーをGitHub Secretsで管理する必要があるため採用しない。                                                             |
+
+AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
+
+## 5. CI/CD
+
+### 全体方針
+
+CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行し、CDはCI workflowの成功後に起動する。これにより、CIが失敗したcommitをデプロイしない。
+
+| Workflow | 起動条件 | 主な処理 |
+| -------- | -------- | -------- |
+| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request、develop/mainへのpush | frontendのformat:check・test・build |
+| .github/workflows/backend-ci.yml | backend変更を含むPull Request、develop/mainへのpush | backendのgofmt・go test・go vet |
+| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+
+### 環境切り替え
+
+developはstg環境、mainはprd環境へデプロイする。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
+
+| 種別 | 名前 | 用途 |
+| ---- | ---- | ---- |
+| Secret | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN |
+| Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
+| Variable | AWS_REGION | AWSリージョン |
+| Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD | 環境別Amplify AppのID |
+| Variable | AMPLIFY_BRANCH_NAME_STG / AMPLIFY_BRANCH_NAME_PRD | 環境別Amplify Branch名 |
+| Variable | ECS_CLUSTER_NAME | ECSクラスター名 |
+| Variable | ECS_SERVICE_NAME | ECSサービス名 |
+| Variable | API_TASK_FAMILY | APIタスク定義family |
+| Variable | MIGRATION_TASK_FAMILY | マイグレーションタスク定義family |
+| Variable | API_ECR_REPOSITORY | API用ECRリポジトリ名 |
+| Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名 |
+| Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD | 環境別API health check URL |
+| Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD | サブネット・SG取得用の環境名 |
+
+GitHub Actionsには次の値を設定する。
+
+| 種別 | 名前 | stg | prd |
+| ---- | ---- | --- | --- |
+| Secret | AWS_ROLE_ARN_* | github-actions-cdロールARN | github-actions-cdロールARN |
+| Variable | AWS_ACCOUNT_ID_* | 089244387218 | 517037063215 |
+| Variable | AMPLIFY_APP_ID_* | d2judt2uwax9h6 | d1o16modss0jxj |
+| Variable | API_HEALTH_URL_* | https://api-v1.stg.x-clone.kyo8.dev/health | https://api-v1.x-clone.kyo8.dev/health |
+| Variable | DEPLOY_ENV_* | stg | prd |
+| Variable | AWS_REGION | ap-northeast-1 | ap-northeast-1 |
+| Variable | AMPLIFY_BRANCH_NAME_* | stg | prd |
+| Variable | ECS_CLUSTER_NAME | x-clone | x-clone |
+| Variable | ECS_SERVICE_NAME | api | api |
+| Variable | API_TASK_FAMILY | api | api |
+| Variable | MIGRATION_TASK_FAMILY | db-migrator | db-migrator |
+| Variable | API_ECR_REPOSITORY | api | api |
+| Variable | MIGRATION_ECR_REPOSITORY | db-migrator | db-migrator |
+
+### backend CDの実行順序
+
+backend CDでは、DockerfileからAPI用イメージとマイグレーション用イメージを作成する。2つのイメージビルドは同じDockerfileのbuild stageを通るため、BuildKitのキャッシュを利用しつつ直列で実行する。
+
+イメージ作成後は、マイグレーション実行とAPIタスク定義登録を並行実行する。両方が成功してからECSサービスを更新する。
+
+```text
+Backend CI成功
+  ↓
+build-images
+  ↓
+  ├─ run-migration
+  └─ register-api-task-definition
+        ↓
+update-api-service
+```
+
+## 6. システム構成とデータモデル
 
 ### バックエンドの構成
 
@@ -204,4 +307,4 @@ erDiagram
 
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
-## 6. 今後の拡張性や運用を見据えた懸念点
+## 7. 今後の拡張性や運用を見据えた懸念点

@@ -1,0 +1,218 @@
+name: Backend CD
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Backend CI
+    types:
+      - completed
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AWS_ACCOUNT_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
+  ECS_CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME }}
+  ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
+  API_TASK_FAMILY: ${{ vars.API_TASK_FAMILY }}
+  MIGRATION_TASK_FAMILY: ${{ vars.MIGRATION_TASK_FAMILY }}
+  API_ECR_REPOSITORY: ${{ vars.API_ECR_REPOSITORY }}
+  MIGRATION_ECR_REPOSITORY: ${{ vars.MIGRATION_ECR_REPOSITORY }}
+  API_HEALTH_URL: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
+  DEPLOY_ENV: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    defaults:
+      run:
+        working-directory: backend
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      migration_image: ${{ steps.images.outputs.migration_image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Validate deployment variables
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" || { echo 'AWS_REGION repository variable is required'; exit 1; }
+          test -n "$AWS_ROLE_ARN" || { echo 'AWS_ROLE_ARN_STG or AWS_ROLE_ARN_PRD repository secret is required'; exit 1; }
+          test -n "$AWS_ACCOUNT_ID" || { echo 'AWS_ACCOUNT_ID_STG or AWS_ACCOUNT_ID_PRD repository variable is required'; exit 1; }
+          test -n "$ECS_CLUSTER_NAME" || { echo 'ECS_CLUSTER_NAME repository variable is required'; exit 1; }
+          test -n "$ECS_SERVICE_NAME" || { echo 'ECS_SERVICE_NAME repository variable is required'; exit 1; }
+          test -n "$API_TASK_FAMILY" || { echo 'API_TASK_FAMILY repository variable is required'; exit 1; }
+          test -n "$MIGRATION_TASK_FAMILY" || { echo 'MIGRATION_TASK_FAMILY repository variable is required'; exit 1; }
+          test -n "$API_ECR_REPOSITORY" || { echo 'API_ECR_REPOSITORY repository variable is required'; exit 1; }
+          test -n "$MIGRATION_ECR_REPOSITORY" || { echo 'MIGRATION_ECR_REPOSITORY repository variable is required'; exit 1; }
+          test -n "$API_HEALTH_URL" || { echo 'API_HEALTH_URL_STG or API_HEALTH_URL_PRD repository variable is required'; exit 1; }
+          test -n "$DEPLOY_ENV" || { echo 'DEPLOY_ENV_STG or DEPLOY_ENV_PRD repository variable is required'; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        id: images
+        run: |
+          set -euo pipefail
+          registry="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          image_tag="${DEPLOY_SHA::7}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+
+          api_image="$registry/$API_ECR_REPOSITORY:$image_tag"
+          migration_image="$registry/$MIGRATION_ECR_REPOSITORY:$image_tag"
+
+          docker buildx build --target app --platform linux/amd64 --load -t "$api_image" .
+          docker push "$api_image"
+
+          docker buildx build --target migration --platform linux/amd64 --load -t "$migration_image" .
+          docker push "$migration_image"
+
+          {
+            echo "api_image=$api_image"
+            echo "migration_image=$migration_image"
+          } >> "$GITHUB_OUTPUT"
+
+  run-migration:
+    runs-on: ubuntu-latest
+    needs: build-images
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
+      - name: Register migration task definition
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "$MIGRATION_TASK_FAMILY" \
+            --query taskDefinition \
+            --output json > migration-task-definition.json
+
+          jq --arg image "${{ needs['build-images'].outputs.migration_image }}" '
+            .containerDefinitions |= map(if .name == "migration" then .image = $image else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+          ' migration-task-definition.json > migration-task-definition-next.json
+
+          migration_task_definition_arn="$(aws ecs register-task-definition \
+            --cli-input-json file://migration-task-definition-next.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          echo "MIGRATION_TASK_DEFINITION_ARN=$migration_task_definition_arn" >> "$GITHUB_ENV"
+
+      - name: Run migration task
+        run: |
+          set -euo pipefail
+          ECS_CLUSTER="$ECS_CLUSTER_NAME" \
+          ECS_MIGRATION_TASK_DEFINITION="$MIGRATION_TASK_DEFINITION_ARN" \
+          DEPLOY_ENV="$DEPLOY_ENV" \
+            bash scripts/ecs-migrate.sh up
+
+  register-api-task-definition:
+    runs-on: ubuntu-latest
+    needs: build-images
+    defaults:
+      run:
+        working-directory: backend
+    outputs:
+      task_definition_arn: ${{ steps.register.outputs.task_definition_arn }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
+      - name: Register API task definition
+        id: register
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "$API_TASK_FAMILY" \
+            --query taskDefinition \
+            --output json > api-task-definition.json
+
+          jq --arg image "${{ needs['build-images'].outputs.api_image }}" '
+            .containerDefinitions |= map(if .name == "api" then .image = $image else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+          ' api-task-definition.json > api-task-definition-next.json
+
+          api_task_definition_arn="$(aws ecs register-task-definition \
+            --cli-input-json file://api-task-definition-next.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          echo "task_definition_arn=$api_task_definition_arn" >> "$GITHUB_OUTPUT"
+
+  update-api-service:
+    runs-on: ubuntu-latest
+    needs:
+      - run-migration
+      - register-api-task-definition
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
+      - name: Update ECS service
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --service "$ECS_SERVICE_NAME" \
+            --task-definition "${{ needs['register-api-task-definition'].outputs.task_definition_arn }}" \
+            --output json >/dev/null
+
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --services "$ECS_SERVICE_NAME"
+
+      - name: Check API health
+        run: curl --fail --show-error --silent --location --max-time 30 "$API_HEALTH_URL"
