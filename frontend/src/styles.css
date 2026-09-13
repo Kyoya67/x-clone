@@ -16,18 +16,16 @@
   --danger: #f91880;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    color: #e7e9ea;
-    background: #000000;
-    --bg: #000000;
-    --surface: #16181c;
-    --surface-hover: #1d2226;
-    --border: #2f3336;
-    --text: #e7e9ea;
-    --muted: #71767b;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  color: #e7e9ea;
+  background: #000000;
+  --bg: #000000;
+  --surface: #16181c;
+  --surface-hover: #1d2226;
+  --border: #2f3336;
+  --text: #e7e9ea;
+  --muted: #71767b;
 }
 
 * {
@@ -159,6 +157,20 @@ button {
   background: var(--brand-hover);
 }
 
+.theme-toggle {
+  background: var(--surface);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+}
+
 .account-menu {
   margin-top: auto;
   position: relative;
@@ -177,11 +189,9 @@ button {
   z-index: 10;
 }
 
-@media (prefers-color-scheme: dark) {
-  .account-popover {
-    background: #151515;
-    box-shadow: 0 0 18px rgb(255 255 255 / 12%);
-  }
+:root[data-theme='dark'] .account-popover {
+  background: #151515;
+  box-shadow: 0 0 18px rgb(255 255 255 / 12%);
 }
 
 .account-popover::after {
@@ -195,10 +205,8 @@ button {
   transform: translateX(-50%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .account-popover::after {
-    border-top-color: #151515;
-  }
+:root[data-theme='dark'] .account-popover::after {
+  border-top-color: #151515;
 }
 
 .account-popover button {
@@ -725,6 +733,7 @@ button {
 
   .nav-item span:not(.badge),
   .post-button,
+  .theme-toggle,
   .account-copy,
   .more {
     display: none;

@@ -4,8 +4,14 @@ import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
 
+type Theme = 'light' | 'dark'
+
 export function Sidebar() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem('theme')
+    return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'light'
+  })
   const accountMenuRef = useRef<HTMLDivElement | null>(null)
   const auth = useOptionalAuth()
   const user = auth?.user
@@ -22,6 +28,13 @@ export function Sidebar() {
     document.addEventListener('click', closeOnOutsideClick)
     return () => document.removeEventListener('click', closeOnOutsideClick)
   }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const nextTheme = theme === 'dark' ? 'light' : 'dark'
 
   return (
     <aside className="sidebar">
@@ -59,6 +72,9 @@ export function Sidebar() {
         onClick={() => document.getElementById('composer')?.focus()}
       >
         ポストする
+      </button>
+      <button className="theme-toggle" type="button" onClick={() => setTheme(nextTheme)}>
+        {nextTheme === 'dark' ? 'ダークモード' : 'ライトモード'}
       </button>
       <div className="account-menu" ref={accountMenuRef}>
         {isAccountMenuOpen && (

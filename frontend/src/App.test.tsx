@@ -58,6 +58,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  localStorage.clear()
+  document.documentElement.removeAttribute('data-theme')
   vi.unstubAllGlobals()
 })
 
@@ -98,5 +100,19 @@ describe('App routes', () => {
     await user.click(screen.getByRole('menuitem', { name: '@taro_tanakaからログアウト' }))
 
     expect(fetch).toHaveBeenCalledWith('/auth/logout', { method: 'POST' })
+  })
+
+  it('switches between light and dark theme', async () => {
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/')
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'ダークモード' }))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('theme')).toBe('dark')
+
+    await user.click(screen.getByRole('button', { name: 'ライトモード' }))
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('theme')).toBe('light')
   })
 })
