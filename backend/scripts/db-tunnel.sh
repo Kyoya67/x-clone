@@ -2,9 +2,18 @@
 # コマンド失敗・未定義変数・パイプ途中の失敗で停止する。
 set -euo pipefail
 
-# 1. 転送を中継するNATインスタンスのIDが指定されているか確認する。
+# 1. 転送を中継するrunning状態のNATインスタンスをタグから取得する。
 # AWS_PROFILE / AWS_REGIONは、このスクリプトを実行したシェルから引き継ぐ。
-: "${NAT_INSTANCE_ID:?Set NAT_INSTANCE_ID to the NAT EC2 instance ID}"
+nat_instance_id=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=nat-instance" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].InstanceId" \
+  --output text)
+
+# 接続先を取得できなければ、転送を開始せず停止する。
+if [[ -z "$nat_instance_id" || "$nat_instance_id" == None ]]; then
+  echo 'Could not resolve running nat-instance' >&2
+  exit 1
+fi
 
 # 2. ローカルPCにSession Managerプラグインがあるか確認する。
 if ! command -v session-manager-plugin >/dev/null 2>&1; then
@@ -38,6 +47,6 @@ echo "Forwarding localhost:$local_port to RDS via SSM. Leave this terminal open;
 
 # execでシェルをAWS CLIに置き換え、セッション終了まで待つ。終了操作はCtrl+C。
 exec aws ssm start-session \
-  --target "$NAT_INSTANCE_ID" \
+  --target "$nat_instance_id" \
   --document-name AWS-StartPortForwardingSessionToRemoteHost \
   --parameters "host=$rds_host,portNumber=5432,localPortNumber=$local_port"

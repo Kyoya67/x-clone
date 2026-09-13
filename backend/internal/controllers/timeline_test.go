@@ -80,3 +80,15 @@ func TestTimelineControllerListReturnsServiceError(t *testing.T) {
 		t.Fatal("internal error was exposed")
 	}
 }
+
+func TestTimelineControllerListHandlesEncodeError(t *testing.T) {
+	controller := NewTimelineController(&fakeTimelineService{})
+	recorder := &failingResponseWriter{header: http.Header{}}
+	request := httptest.NewRequest(http.MethodGet, "/timeline", nil)
+
+	controller.List(recorder, request)
+
+	if recorder.status != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.status)
+	}
+}

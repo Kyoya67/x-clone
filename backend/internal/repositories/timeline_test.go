@@ -81,3 +81,49 @@ func TestTimelineRepositoryListReturnsDatabaseError(t *testing.T) {
 		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
 	}
 }
+
+func TestTimelineRepositoryListReturnsScanError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT posts.id, posts.content, posts.created_at, users.id, users.handle, users.display_name")).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "content", "created_at", "author_id", "handle", "display_name"}).
+			AddRow(nil, "hello", time.Now(), "author-1", "author_handle", "Author"))
+
+	repository := NewTimelineRepository(db)
+	_, err = repository.List(context.Background(), "user-1", models.TimelineFeedForYou)
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected application error, got %v", err)
+	}
+	if appErr.ErrCode != string(apperrors.DependencyUnavailable) {
+		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
+	}
+}
+
+func TestTimelineRepositoryListReturnsRowsError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{"id", "content", "created_at", "author_id", "handle", "display_name"}).
+		AddRow("post-1", "hello", time.Now(), "author-1", "author_handle", "Author").
+		RowError(0, errors.New("row error"))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT posts.id, posts.content, posts.created_at, users.id, users.handle, users.display_name")).
+		WillReturnRows(rows)
+
+	repository := NewTimelineRepository(db)
+	_, err = repository.List(context.Background(), "user-1", models.TimelineFeedForYou)
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected application error, got %v", err)
+	}
+	if appErr.ErrCode != string(apperrors.DependencyUnavailable) {
+		t.Fatalf("unexpected error code: %s", appErr.ErrCode)
+	}
+}

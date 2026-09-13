@@ -2,6 +2,28 @@
 
 X風のタイムライン画面を提供するフロントエンドです。
 
+## ディレクトリ構成
+
+```text
+frontend/
+├── src/
+│   ├── components/      # 再利用可能なUIコンポーネント
+│   ├── data/            # モックデータ
+│   ├── pages/           # ページ単位のコンポーネント
+│   ├── state/           # Contextなどの共有状態
+│   ├── test/            # テストセットアップ
+│   ├── App.tsx          # ルーティング定義
+│   ├── main.tsx         # エントリーポイント
+│   └── styles.css       # スタイル
+├── index.html
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
+└── .prettierrc
+```
+
 ## 使用技術
 
 - React
@@ -126,25 +148,3 @@ npm run build
 - レスポンシブ表示
 
 現在はモックデータを使用しています。バックエンドAPIとの接続は今後実装します。
-
-## ディレクトリ構成
-
-```text
-frontend/
-├── src/
-│   ├── components/      # 再利用可能なUIコンポーネント
-│   ├── data/            # モックデータ
-│   ├── pages/           # ページ単位のコンポーネント
-│   ├── state/           # Contextなどの共有状態
-│   ├── test/            # テストセットアップ
-│   ├── App.tsx          # ルーティング定義
-│   ├── main.tsx         # エントリーポイント
-│   └── styles.css       # スタイル
-├── index.html
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-├── vite.config.ts
-├── vitest.config.ts
-└── .prettierrc
-```

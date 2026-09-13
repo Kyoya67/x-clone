@@ -7,10 +7,9 @@ ECR_REGISTRY ?= 089244387218.dkr.ecr.$(ECR_REGION).amazonaws.com
 
 # DB管理コマンドのstg用既定値。必要な場合はmakeの引数で上書きできる。
 DB_LOCAL_PORT ?= 15432
-DB_TUNNEL ?= 127.0.0.1:$(DB_LOCAL_PORT)
+DB_LOCAL_FORWARD_ENDPOINT ?= 127.0.0.1:$(DB_LOCAL_PORT)
 db-user db-tunnel: export AWS_PROFILE ?= x-clone-terraform-stg
 db-user db-tunnel: export AWS_REGION ?= ap-northeast-1
-db-tunnel: export NAT_INSTANCE_ID ?= i-03653ea01d0f54ffa
 db-tunnel: export DB_LOCAL_PORT := $(DB_LOCAL_PORT)
 
 # ECS単発タスクを起動し、終了コードまで確認する。SSM転送は不要。
@@ -25,7 +24,7 @@ api-ecr-push:
 migration-ecr-push:
 	$(MAKE) _ecr-push ECR_REPOSITORY=db-migrator DOCKER_TARGET=migration
 
-# 上記2コマンドから呼ぶ共通処理。リポジトリとビルド対象は呼び出し元で指定する。
+# 上記のapi-ecr-push, migration-ecr-pushコマンドから呼ぶ共通処理。リポジトリとビルド対象は呼び出し元で指定する。
 # ログイン・ビルド・pushを順に実行し、途中で失敗したら停止する。
 _ecr-push: SHELL := /bin/bash
 _ecr-push:
@@ -55,7 +54,7 @@ db-user:
 		--connect-timeout 10 --max-time 60 \
 		https://truststore.pki.rds.amazonaws.com/ap-northeast-1/ap-northeast-1-bundle.pem \
 		--output "$$rds_ca_file"; \
-	go run ./cmd/db-user --ca-file "$$rds_ca_file" --tunnel "$(DB_TUNNEL)"
+	go run ./cmd/db-user --ca-file "$$rds_ca_file" --local-forward-endpoint "$(DB_LOCAL_FORWARD_ENDPOINT)"
 
 migrate-up:
 	docker compose run --rm migrate \
