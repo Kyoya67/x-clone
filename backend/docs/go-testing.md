@@ -10,6 +10,14 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - 認証系レスポンスへ`Cache-Control: no-store`を設定する
 - callbackのstate不一致を`401 Unauthorized`へ変換する
 - callback失敗時にstateやcodeなどの内部詳細をレスポンスへ含めない
+- callback用の一時Cookie不足を`400 Bad Request`へ変換する
+- 認可コード交換失敗を`503 Service Unavailable`へ変換し、内部詳細をレスポンスへ含めない
+- ログイン中ユーザー情報をJSONで返す
+- 未ログイン時のユーザー情報取得を`401 Unauthorized`へ変換する
+- ログアウト時にsession Cookieを削除する
+- Middlewareでsession Cookieを検証し、ユーザーIDをcontextへ渡す
+- 認可コード交換でtoken endpointへ必要な値を送信し、`id_token`を取得する
+- token endpointの非`200 OK`レスポンスや不正なtokenレスポンスをエラーへ変換する
 
 `post.go`では、次の観点をテストしている。
 
@@ -51,12 +59,12 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 | --------- | --------------------- | ---------: |
 | auth.go   | NewAuthController     |     100.0% |
 |           | Login                 |      76.9% |
-|           | Callback              |      21.2% |
-|           | Me                    |       0.0% |
-|           | Logout                |       0.0% |
-|           | Middleware            |       0.0% |
-|           | exchangeCode          |       0.0% |
-|           | cookieValue           |      75.0% |
+|           | Callback              |      48.5% |
+|           | Me                    |      75.0% |
+|           | Logout                |     100.0% |
+|           | Middleware            |      80.0% |
+|           | exchangeCode          |      95.5% |
+|           | cookieValue           |     100.0% |
 |           | setAuthNoStore        |     100.0% |
 | follow.go | NewFollowController   |     100.0% |
 |           | Follow                |     100.0% |
@@ -73,7 +81,7 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 |           | readOpenAPISpec       |     100.0% |
 | timeline.go | NewTimelineController |   100.0% |
 |           | List                  |      86.7% |
-| 合計      | -                     |      56.4% |
+| 合計      | -                     |      81.7% |
 
 計測コマンド：
 
