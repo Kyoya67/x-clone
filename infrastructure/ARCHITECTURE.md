@@ -4,6 +4,8 @@
 
 ### VPC・サブネットとリソース配置
 
+VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
+
 | VPC内のサブネット | CIDR          | 現在配置されているリソース        |
 | ----------------- | ------------- | --------------------------------- |
 | ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api   |
@@ -56,14 +58,6 @@ ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplif
 | ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                                                                                                                   |
 | EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                                                                                                                          |
 | GitHub Actions      | github-actions-cd（ロール）              | CD workflowからAWS APIを実行             | github-actions-cd（カスタマー管理）          | GitHub OIDCによるAssumeRoleWithWebIdentity<br>Amplifyへのデプロイ作成・開始・確認<br>ECR api/db-migratorへのpush<br>ECSタスク定義登録・単発タスク起動・サービス更新<br>対象ECSロールのiam:PassRole |
-
-### DBユーザー・Secret・実行場所の関係
-
-| DBユーザー     | Secret            | 使う場所                                     | 用途                                                  |
-| -------------- | ----------------- | -------------------------------------------- | ----------------------------------------------------- |
-| dbadmin        | db/dbadmin        | 開発者PCで実行するDBユーザー初期設定コマンド | 初期設定・ユーザー管理                                |
-| migration_user | db/migration_user | ECSタスク：db-migrator                       | テーブル作成・変更、migration.schema_migrationsの管理 |
-| app_user       | db/app_user       | ECSサービスで常時起動するAPIタスク           | アプリデータの読み書き                                |
 
 ## DBユーザー・Secret・実行場所の設計
 
