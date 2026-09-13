@@ -2,6 +2,14 @@ name: Frontend CD
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Deploy target
+        required: true
+        type: choice
+        options:
+          - stg
+          - prd
   workflow_run:
     workflows:
       - Frontend CI
@@ -18,9 +26,9 @@ permissions:
 env:
   DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
-  AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
-  AMPLIFY_BRANCH_NAME: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AMPLIFY_BRANCH_NAME_PRD' || 'AMPLIFY_BRANCH_NAME_STG'] }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
+  AMPLIFY_BRANCH_NAME: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AMPLIFY_BRANCH_NAME_PRD' || 'AMPLIFY_BRANCH_NAME_STG'] }}
 
 jobs:
   deploy:
