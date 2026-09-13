@@ -1,20 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="15" fill="#050505"/>
-  <path
-    fill="none"
-    stroke="#ffffff"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-width="10"
-    d="M13 12c9 7 13 13 20 24 6 8 12 14 20 17M51 13c-8 8-13 14-19 22-7 7-13 13-19 18"
-  />
-  <path
-    fill="none"
-    stroke="#1d9bf0"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-width="5"
-    opacity=".88"
-    d="M16 15c7 5 12 13 19 23 5 6 9 10 14 13M48 16c-6 7-10 12-17 20-5 5-9 10-15 14"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#000000"/>
+  <defs>
+    <filter id="chalk">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="8"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.6"/>
+    </filter>
+  </defs>
+  <g filter="url(#chalk)" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="8" opacity=".95" d="M32 24c18 18 31 42 49 64 7 9 13 16 18 22"/>
+    <path stroke-width="5" opacity=".9" d="M25 27c21 20 33 44 53 68 5 6 11 12 17 18"/>
+    <path stroke-width="4" opacity=".75" d="M35 20c15 22 31 42 47 66 7 10 12 18 21 25"/>
+    <path stroke-width="3" opacity=".7" d="M27 35c16 15 30 35 45 55 8 11 15 19 25 25"/>
+    <path stroke-width="8" opacity=".95" d="M99 23c-16 17-29 38-46 61-8 11-16 20-25 29"/>
+    <path stroke-width="5" opacity=".9" d="M105 29c-19 16-31 39-51 63-7 8-13 15-24 22"/>
+    <path stroke-width="4" opacity=".75" d="M94 18c-13 18-28 39-44 62-9 13-18 24-26 31"/>
+    <path stroke-width="3" opacity=".7" d="M103 38c-15 11-27 30-43 52-8 11-17 20-31 27"/>
+    <path stroke-width="3" opacity=".65" d="M30 22c-6 1-9 4-9 8 3 4 8 5 16 3"/>
+    <path stroke-width="3" opacity=".65" d="M27 105c-5 6-4 11 2 13 5 0 10-4 14-10"/>
+    <path stroke-width="3" opacity=".65" d="M96 101c2 9 7 13 14 12 2-5-1-9-8-14"/>
+  </g>
 </svg>
