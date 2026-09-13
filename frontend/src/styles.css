@@ -165,27 +165,14 @@ button {
   width: 100%;
 }
 
-.account-menu:focus-within .account-popover,
-.account-menu:hover .account-popover {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
 .account-popover {
   background: var(--bg);
   border-radius: 16px;
   bottom: calc(100% + 12px);
   box-shadow: 0 0 14px rgb(101 119 134 / 20%);
   left: 0;
-  opacity: 0;
   overflow: hidden;
-  pointer-events: none;
   position: absolute;
-  transform: translateY(6px);
-  transition:
-    opacity 0.12s ease,
-    transform 0.12s ease;
   width: 300px;
   z-index: 10;
 }

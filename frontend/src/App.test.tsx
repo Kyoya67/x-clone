@@ -91,8 +91,10 @@ describe('App routes', () => {
     render(<App />)
 
     expect(
-      await screen.findByRole('menuitem', { name: '既存のアカウントを追加' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('menuitem', { name: '既存のアカウントを追加' }),
+    ).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /田中 太郎/ }))
+    expect(screen.getByRole('menuitem', { name: '既存のアカウントを追加' })).toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: '@taro_tanakaからログアウト' }))
 
     expect(fetch).toHaveBeenCalledWith('/auth/logout', { method: 'POST' })

@@ -1,14 +1,27 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
 
 export function Sidebar() {
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const accountMenuRef = useRef<HTMLDivElement | null>(null)
   const auth = useOptionalAuth()
   const user = auth?.user
   const displayName = user?.displayName ?? currentUser.displayName
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const avatar = displayName.slice(0, 1) || 'U'
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', closeOnOutsideClick)
+    return () => document.removeEventListener('click', closeOnOutsideClick)
+  }, [])
 
   return (
     <aside className="sidebar">
@@ -47,18 +60,26 @@ export function Sidebar() {
       >
         ポストする
       </button>
-      <div className="account-menu">
-        <div className="account-popover" role="menu" aria-label="アカウントメニュー">
-          <button type="button" role="menuitem">
-            既存のアカウントを追加
-          </button>
-          {auth && (
-            <button type="button" role="menuitem" onClick={() => void auth.logout()}>
-              @{handle}からログアウト
+      <div className="account-menu" ref={accountMenuRef}>
+        {isAccountMenuOpen && (
+          <div className="account-popover" role="menu" aria-label="アカウントメニュー">
+            <button type="button" role="menuitem">
+              既存のアカウントを追加
             </button>
-          )}
-        </div>
-        <button className="account-card" type="button" aria-haspopup="menu">
+            {auth && (
+              <button type="button" role="menuitem" onClick={() => void auth.logout()}>
+                @{handle}からログアウト
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          className="account-card"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={isAccountMenuOpen}
+          onClick={() => setIsAccountMenuOpen((current) => !current)}
+        >
           <span className="avatar avatar-blue">{avatar}</span>
           <span className="account-copy">
             <strong>{displayName}</strong>
