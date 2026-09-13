@@ -2,36 +2,30 @@ name: Frontend CD
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows:
+      - Frontend CI
+    types:
+      - completed
     branches:
       - develop
       - main
-    paths:
-      - "frontend/src/**"
-      - "frontend/public/**"
-      - "frontend/index.html"
-      - "frontend/package.json"
-      - "frontend/package-lock.json"
-      - "frontend/tsconfig*.json"
-      - "frontend/vite.config.ts"
-      - "frontend/vitest.config.ts"
-      - "frontend/.prettierrc"
-      - "frontend/.prettierignore"
-      - ".github/workflows/frontend-cd.yml"
 
 permissions:
   contents: read
   id-token: write
 
 env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ROLE_ARN: ${{ secrets[github.ref_name == 'main' && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
-  AMPLIFY_APP_ID: ${{ vars[github.ref_name == 'main' && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
   AMPLIFY_BRANCH_NAME: ${{ vars.AMPLIFY_BRANCH_NAME }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: frontend
@@ -39,6 +33,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,12 +45,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Run tests
-        run: npm run test
 
       - name: Build
         run: npm run build
@@ -79,6 +69,7 @@ jobs:
 
           zip_file="$(mktemp --suffix=.zip)"
           trap 'rm -f -- "$zip_file" deployment.json job.json' EXIT
+          rm -f "$zip_file"
 
           (cd dist && zip -qr "$zip_file" .)
 
