@@ -77,8 +77,8 @@ DBユーザー登録の初期設定では、次のバックエンド側ファイ
 ### DBユーザー：migration_user（マイグレーション用）
 
 - 単発実行するECSタスクdb-migratorが、DBへ接続するときに使う。
-- 現在は開発者がタスクを起動する。将来はCI/CDから同じタスクを起動し、デプロイ時のテーブル作成・変更に使う。
-- CI/CDがタスクを起動する権限はIAM、タスク内からDBを変更する権限はmigration_userが担う。
+- 開発者の手動実行とCI/CDの両方から、同じdb-migratorタスクを起動する。
+- 開発者またはCI/CDがタスクを起動する権限はIAM、タスク内からDBを変更する権限はmigration_userが担う。
 - appデータベースに接続する（CONNECT）。
 - publicスキーマを利用し、テーブルを作成する（USAGE・CREATE）。
 - migration_userで実行するマイグレーションにより、public配下のアプリテーブルを作成・変更する。
@@ -139,21 +139,21 @@ dbadminのSecret値をTerraformのdata sourceで読み込んでRDSに渡す構�
 
 SSMポート転送は、開発者PCからRDSへ一時的に到達するための経路。db-user実行時だけ使い、APIタスクやマイグレーションタスクでは使わない。
 
-## マイグレーション（現在の手動起動と将来のCI/CD）
+## マイグレーション（手動実行とCI/CD）
 
-現在も将来も、db-migratorは処理が終わると終了する単発のECSタスク。将来は起動元を開発者PCからCI/CDへ切り替える。CI/CDは未実装。
+db-migratorは処理が終わると終了する単発のECSタスク。開発者PCから手動で起動する場合も、CI/CDから自動で起動する場合も、同じタスク定義を使う。
 
 ```mermaid
 flowchart TD
-  DEV["現在：開発者が手動で起動"]
-  CI["将来：CI/CDが自動で起動"]
+  DEV["開発者が手動で起動"]
+  CI["CI/CDが自動で起動"]
   ECS["ECSタスク定義"]
   SM["Secrets Manager<br/>DBの認証情報を保管"]
   TASK["ECSタスク＝実体<br/>マイグレーションを実行"]
   DB["RDS<br/>テーブルを作成・変更"]
   DONE["処理完了後、タスクは終了"]
   DEV -->|"① 起動を要求<br/>起動元のIAM権限"| ECS
-  CI -.->|"将来は起動元を差し替え"| ECS
+  CI -->|"① 起動を要求<br/>GitHub Actions用IAMロール"| ECS
   ECS -->|"② 認証情報を取得<br/>タスク実行ロールの権限"| SM
   SM -->|"DBの認証情報"| ECS
   ECS -->|"③ 環境変数へ渡す<br/>タスクを起動"| TASK
