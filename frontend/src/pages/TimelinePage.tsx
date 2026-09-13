@@ -105,7 +105,7 @@ export function TimelinePage() {
         ) : posts.length === 0 ? (
           <p>表示する投稿はありません。</p>
         ) : (
-          <Feed posts={posts} onToggleLike={toggleLike} />
+          <Feed posts={posts} onToggleLike={toggleLike} currentUserHandle={user?.handle} />
         )}
       </div>
     </PageLayout>
