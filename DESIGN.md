@@ -140,6 +140,19 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 MySQLは、一般的なCRUD中心のサービスや既存の運用知見を活用する場合に十分な選択肢である。一方、今回は投稿・ユーザー・フォローの関連データをRDBで管理し、タイムライン取得や将来の検索・分析機能で複雑なクエリを扱う可能性があるため、PostgreSQLの機能と拡張性を優先した。
 
+### AWSインフラ
+
+| 採用 | 選択肢 | 役割 | 判断理由 |
+| ---- | ------ | ---- | -------- |
+| ⭕️ | Terraform | AWSリソース管理 | VPC、ECS、RDS、ECR、IAM、Secrets Managerをコードで管理し、環境を再作成しやすくする |
+| ⭕️ | ECS Fargate | API実行基盤 | コンテナ化したGo APIを動かす。EC2管理を避けつつ、タスク定義・サービスで起動設定を管理できる |
+| ⭕️ | ECS単発タスク | RDSマイグレーション実行 | migration_userのSecretを使い、アプリとは別の実行単位でDB変更を行う。将来CI/CDから起動しやすい |
+| ⭕️ | RDS PostgreSQL | アプリDB | PostgreSQLをマネージドで運用する。現時点ではSingle-AZ構成 |
+| ⭕️ | Secrets Manager | DB認証情報管理 | dbadmin、app_user、migration_userの認証情報を用途別に管理する |
+| ⭕️ | SSM Session Manager | 開発者PCからRDSへの一時接続 | RDSをpublicにせず、NATインスタンス経由でDBユーザー初期設定や手動確認を行う |
+
+AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
+
 ## 5. システム構成とデータモデル
 
 ### バックエンドの構成

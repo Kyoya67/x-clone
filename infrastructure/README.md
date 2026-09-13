@@ -122,4 +122,4 @@ ECSサービスがAPIタスクを起動していることを確認します。
 
 ## 設計資料
 
-AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針は[DESIGN.md](./DESIGN.md)を参照してください。
+AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針は[ARCHITECTURE.md](./ARCHITECTURE.md)を参照してください。
