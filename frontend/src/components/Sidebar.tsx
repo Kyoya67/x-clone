@@ -1,14 +1,40 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
 
+type Theme = 'light' | 'dark'
+
 export function Sidebar() {
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem('theme')
+    return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'light'
+  })
+  const accountMenuRef = useRef<HTMLDivElement | null>(null)
   const auth = useOptionalAuth()
   const user = auth?.user
   const displayName = user?.displayName ?? currentUser.displayName
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const avatar = displayName.slice(0, 1) || 'U'
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', closeOnOutsideClick)
+    return () => document.removeEventListener('click', closeOnOutsideClick)
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const nextTheme = theme === 'dark' ? 'light' : 'dark'
 
   return (
     <aside className="sidebar">
@@ -25,7 +51,6 @@ export function Sidebar() {
         <NavLink className="nav-item" to="/notifications">
           <Icon name="bell" />
           <span>通知</span>
-          <span className="badge">3</span>
         </NavLink>
         <NavLink className="nav-item" to="/messages">
           <Icon name="chat" />
@@ -47,21 +72,41 @@ export function Sidebar() {
       >
         ポストする
       </button>
-      <div className="account-card">
-        <span className="avatar avatar-blue">{avatar}</span>
-        <span className="account-copy">
-          <strong>{displayName}</strong>
-          <small>@{handle}</small>
-        </span>
-        <span className="more">
-          {auth ? (
-            <button type="button" onClick={() => void auth.logout()}>
-              ログアウト
+      <button
+        className="theme-toggle"
+        type="button"
+        aria-label={nextTheme === 'dark' ? 'ダークモード' : 'ライトモード'}
+        onClick={() => setTheme(nextTheme)}
+      >
+        <Icon name={nextTheme === 'dark' ? 'moon' : 'sun'} />
+      </button>
+      <div className="account-menu" ref={accountMenuRef}>
+        {isAccountMenuOpen && (
+          <div className="account-popover" role="menu" aria-label="アカウントメニュー">
+            <button type="button" role="menuitem">
+              既存のアカウントを追加
             </button>
-          ) : (
-            '•••'
-          )}
-        </span>
+            {auth && (
+              <button type="button" role="menuitem" onClick={() => void auth.logout()}>
+                @{handle}からログアウト
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          className="account-card"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={isAccountMenuOpen}
+          onClick={() => setIsAccountMenuOpen((current) => !current)}
+        >
+          <span className="avatar avatar-blue">{avatar}</span>
+          <span className="account-copy">
+            <strong>{displayName}</strong>
+            <small>@{handle}</small>
+          </span>
+          <span className="more">•••</span>
+        </button>
       </div>
     </aside>
   )

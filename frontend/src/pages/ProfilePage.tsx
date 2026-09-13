@@ -11,7 +11,7 @@ export function ProfilePage() {
   const avatar = displayName.slice(0, 1) || 'U'
 
   return (
-    <ContentPage title="プロフィール" description="あなたのプロフィールとポストを表示します。">
+    <ContentPage title="プロフィール">
       <div className="profile-card">
         <span className="avatar avatar-blue profile-avatar">{avatar}</span>
         <h2>{displayName}</h2>

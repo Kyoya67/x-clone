@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { PageLayout } from '../components/PageLayout'
 
-type ContentPageProps = { title: string; description: string; children?: ReactNode }
+type ContentPageProps = { title: string; description?: string; children?: ReactNode }
 
 export function ContentPage({ title, description, children }: ContentPageProps) {
   return (
@@ -10,7 +10,7 @@ export function ContentPage({ title, description, children }: ContentPageProps) 
         <h1>{title}</h1>
       </header>
       <section className="content-body">
-        <p>{description}</p>
+        {description && <p>{description}</p>}
         {children}
       </section>
     </PageLayout>

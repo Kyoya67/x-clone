@@ -1,6 +1,6 @@
 # バックエンドのコンテナ
 
-リポジトリルートで実行する。DockerfileはGo 1.25.5でテスト・vet・ビルドを行い、実行用イメージには静的バイナリ、RDS用CA証明書、Swagger用OpenAPI YAMLを含める。非rootユーザーで起動する。
+リポジトリルートで実行する。DockerfileはGo 1.25.5でテスト・vet・ビルドを行い、実行用イメージには静的バイナリ、RDS用CA証明書、一般的なCA証明書、Swagger用OpenAPI YAMLを含める。非rootユーザーで起動する。
 
 ## RDS用CA証明書
 
@@ -12,7 +12,9 @@ RDS側のサーバー証明書はAWSが用意する。バックエンド側に�
 
 ### 配置と接続設定
 
-外部HTTPS APIは利用しないため、実行用イメージには一般的なCA一覧をコピーせず、[AWS公式の東京リージョン用RDS CAバンドル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html)をビルド時に取得し、`/app/certs/rds-ca-bundle.pem`へ配置する。
+RDS接続用には、[AWS公式の東京リージョン用RDS CAバンドル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html)をビルド時に取得し、`/app/certs/rds-ca-bundle.pem`へ配置する。
+
+GoogleログインではバックエンドからCognitoのHTTPSエンドポイントへ接続するため、APIイメージには一般的なCA証明書も配置する。`scratch`イメージにはOSの信頼済みCAが含まれないため、配置しないと`x509: certificate signed by unknown authority`で認証処理が失敗する。
 
 配置だけでは証明書検証は有効にならない。ECSではDB_HOST・DB_PORTと、Secretから注入するDB_USER・DB_PASSWORDを使い、Go側がverify-fullと/app/certs/rds-ca-bundle.pemを設定する。ローカル開発のDATABASE_URL・DATABASE_SSL_MODEは引き続き利用できる。
 
@@ -26,6 +28,7 @@ ALBでHTTPSを受け付ける際は、ACMで管理するサーバー証明書を
 | --- | --- | --- | --- |
 | ブラウザ → ALB（HTTPS） | ALB（ACMの証明書） | ブラウザ | ブラウザ・OSの信頼ストア |
 | Goバックエンド → RDS（PostgreSQL over TLS） | RDS（AWSが用意する証明書） | Goバックエンド | `/app/certs/rds-ca-bundle.pem` |
+| Goバックエンド → Cognito（HTTPS） | Cognito | Goバックエンド | `/etc/ssl/certs/ca-certificates.crt` |
 
 ALBで受けたTLS接続と、バックエンドからRDSへのTLS接続は別の接続である。ALBの証明書を設定しても、DB通信が自動で暗号化・検証されるわけではない。また、ALBからバックエンドへの転送区間も別途HTTP/HTTPSを選ぶ必要があり、ALBでのHTTPS受付だけで全区間の暗号化が保証されるわけではない。
 
@@ -79,7 +82,7 @@ sequenceDiagram
 - RDS用CAのイメージへの配置、Dockerビルド、ビルド内のGoテスト・vetは確認済み。
 - RDSへの`verify-full`接続と、ALBへのACM証明書設定は今後実装・検証する。
 - ローカルDBでは引き続き`DATABASE_SSL_MODE=disable`を使用する。
-- 将来外部HTTPS APIを利用する場合は、その接続先を検証できる一般的なCA一覧の追加も検討する。
+- GoogleログインでCognitoへHTTPS接続するため、APIイメージには一般的なCA一覧も配置する。
 
 ## ビルドと起動確認
 

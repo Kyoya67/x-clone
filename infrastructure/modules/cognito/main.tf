@@ -23,6 +23,17 @@ resource "aws_cognito_identity_provider" "google" {
     username = "sub"
     name     = "name"
   }
+
+  lifecycle {
+    ignore_changes = [
+      provider_details["attributes_url"],
+      provider_details["attributes_url_add_attributes"],
+      provider_details["authorize_url"],
+      provider_details["oidc_issuer"],
+      provider_details["token_request_method"],
+      provider_details["token_url"],
+    ]
+  }
 }
 
 resource "aws_cognito_user_pool_client" "this" {
@@ -47,4 +58,3 @@ resource "aws_cognito_user_pool_domain" "this" {
   domain       = var.domain_prefix
   user_pool_id = aws_cognito_user_pool.this.id
 }
-

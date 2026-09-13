@@ -117,6 +117,18 @@ func TestFollowControllerListFollowingReturnsServiceError(t *testing.T) {
 	}
 }
 
+func TestFollowControllerListFollowingRequiresLogin(t *testing.T) {
+	controller := NewFollowController(&fakeFollowService{})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+
+	controller.ListFollowing(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	}
+}
+
 func TestFollowControllerListFollowingHandlesEncodeError(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{})
 	recorder := &failingResponseWriter{header: http.Header{}}
@@ -171,6 +183,18 @@ func TestFollowControllerReturnsServiceError(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), "secret database details") {
 		t.Fatal("internal error was exposed")
+	}
+}
+
+func TestFollowControllerFollowRequiresLogin(t *testing.T) {
+	controller := NewFollowController(&fakeFollowService{})
+	recorder := httptest.NewRecorder()
+	request := withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID)
+
+	controller.Follow(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
 	}
 }
 
