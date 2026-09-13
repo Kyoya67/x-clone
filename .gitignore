@@ -21,6 +21,6 @@ infrastructure/**/*.tfvars
 infrastructure/**/*.tfvars.json
 infrastructure/**/crash.log
 infrastructure/**/crash.*.log
-
+infrastructure/stg/moved.tf
 # Local environment files
 **/.envrc

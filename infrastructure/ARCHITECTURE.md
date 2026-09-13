@@ -2,25 +2,63 @@
 
 ## 現在のAWSリソース構成
 
+### フロントエンド配信
+
+| リソース        | 名前・設定                                         | 用途                                                                                                                                              |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Amplify Hosting | x-clone                                            | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス                                                                                          |
+| Amplifyブランチ | stg                                                | Git連携なしでビルド成果物を手動アップロードする配信先                                                                                             |
+| 独自ドメイン    | stg.x-clone.kyo8.dev → stgブランチ                 | Amplify管理証明書でHTTPS配信。Route 53のAエイリアス・検証CNAMEをTerraform管理                                                                     |
+| ビルド          | ローカルのfrontend                                 | npm ci・npm run buildを実行し、distの中身をZIP化                                                                                                  |
+| リライト        | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応                                                                                                               |
+| API転送         | /api/ → https://api-v1.stg.x-clone.kyo8.dev/       | /apiを除去してHTTPSで転送。SPAルールより先に評価。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。 |
+
+### HTTPS証明書
+
+| 用途       | ドメイン                    | 管理元            | Terraform上の扱い                                             |
+| ---------- | --------------------------- | ----------------- | ------------------------------------------------------------- |
+| フロント用 | stg.x-clone.kyo8.dev        | Amplify管理証明書 | aws_amplify_domain_associationで管理。検証CNAMEはRoute 53管理 |
+| API用      | api-v1.stg.x-clone.kyo8.dev | ACM証明書         | modules/acm_certificateで管理。検証CNAMEはRoute 53管理        |
+
 ### VPC・サブネットとリソース配置
+
+ALBは実環境へ反映済み。APIドメインの/healthでHTTPS応答を確認済み。
 
 VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
-| VPC内のサブネット | CIDR          | 現在配置されているリソース                        |
-| ----------------- | ------------- | ------------------------------------------------- |
-| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）。外向き通信とSSM接続の中継 |
-| ├ public-1c       | 10.0.64.0/18  | なし                                              |
-| ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）                     |
-| └ private-1c      | 10.0.192.0/18 | なし                                              |
+| VPC内のサブネット | CIDR          | 現在配置されているリソース        |
+| ----------------- | ------------- | --------------------------------- |
+| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api   |
+| ├ public-1c       | 10.0.64.0/18  | ALB api（同じALBを2つのAZに配置） |
+| ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）     |
+| └ private-1c      | 10.0.192.0/18 | なし                              |
 
 ### リソースとセキュリティーグループの対応・許可する通信
 
 | AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
 | ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
-| ECS：api          | api                    | APIサーバー               | nat-instance SGからTCP 8080（手動API確認）                                                                      | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ALB：api          | api-alb                | APIのHTTPS公開            | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送）                                                                     | api SGへTCP 8080                      |
+| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080<br>nat-instance SGからTCP 8080（手動API確認）                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
+
+### APIのHTTPS公開
+
+| 構成要素           | 設定                                                                         |
+| ------------------ | ---------------------------------------------------------------------------- |
+| APIドメイン        | api-v1.stg.x-clone.kyo8.dev                                                  |
+| Route 53           | 既存のstg.x-clone.kyo8.devゾーンをimportして管理し、ALBへのAエイリアスを作成 |
+| ACM                | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEはRoute 53で作成    |
+| ALB api            | HTTPS 443でTLSを終端。HTTP 80はHTTPSへリダイレクト                           |
+| ターゲットグループ | Fargate用のip形式、HTTP 8080。タスクの登録・解除はECSサービスが実施          |
+| ECSサービス api    | APIコンテナの8080へ転送。起動後60秒はヘルスチェック失敗を猶予                |
+| ヘルスチェック     | /healthのHTTP 200。DBへの問い合わせは行わない                                |
+
+外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
+TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
+ホストゾーンとDNSレコードはmodules/route53、ALBはmodules/alb、API用証明書はmodules/acm_certificate、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
+ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplifyのリライトで行う。
 
 ### IAMユーザー・ロール・ポリシー
 
