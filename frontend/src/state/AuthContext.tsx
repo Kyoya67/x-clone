@@ -1,5 +1,11 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react'
-import { CurrentUserResponse, fetchCurrentUser, logout as requestLogout } from '../api/auth'
+import {
+  CurrentUserResponse,
+  fetchCurrentUser,
+  logout as requestLogout,
+  updateCurrentUser,
+  UpdateProfileRequest,
+} from '../api/auth'
 import { currentUser } from '../config/currentUser'
 
 type AuthState = {
@@ -8,6 +14,7 @@ type AuthState = {
   error: string
   login: () => void
   logout: () => Promise<void>
+  updateProfile: (request: UpdateProfileRequest) => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -54,6 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await requestLogout()
         setUser(null)
       },
+      updateProfile: async (request) => {
+        const updatedUser = await updateCurrentUser(request)
+        setUser(updatedUser)
+      },
     }),
     [user, isLoading, error],
   )
@@ -69,6 +80,7 @@ function localDevelopmentUser(): CurrentUserResponse | null {
     displayName: currentUser.displayName,
     bio: currentUser.bio,
     createdAt: new Date().toISOString(),
+    needsProfileSetup: false,
   }
 }
 

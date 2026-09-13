@@ -2,16 +2,18 @@ import { FormEvent } from 'react'
 
 export function Composer({
   draft,
+  avatar,
   onDraftChange,
   onPublish,
 }: {
   draft: string
+  avatar: string
   onDraftChange: (value: string) => void
   onPublish: (event: FormEvent) => void | Promise<void>
 }) {
   return (
     <form className="composer" onSubmit={onPublish}>
-      <span className="avatar avatar-blue">太</span>
+      <span className="avatar avatar-blue">{avatar}</span>
       <div className="composer-main">
         <textarea
           id="composer"

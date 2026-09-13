@@ -68,6 +68,11 @@ func TestFollow(t *testing.T) {
 		ON CONFLICT (follower_id, followee_id) DO NOTHING`)).
 		WithArgs("00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO notifications (recipient_id, actor_id, type)
+		VALUES ($1, $2, 'follow')
+		ON CONFLICT DO NOTHING`)).
+		WithArgs("00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000001").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPut, "/users/00000000-0000-0000-0000-000000000002/follow", nil)

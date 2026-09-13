@@ -14,6 +14,10 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - 認可コード交換失敗を`503 Service Unavailable`へ変換し、内部詳細をレスポンスへ含めない
 - ログイン中ユーザー情報をJSONで返す
 - 未ログイン時のユーザー情報取得を`401 Unauthorized`へ変換する
+- プロフィール更新でログインユーザーIDとリクエストbodyをServiceへ渡す
+- プロフィール更新の不正JSONを`400 Bad Request`へ変換する
+- プロフィール更新の未ログインを`401 Unauthorized`へ変換する
+- プロフィール更新の内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
 - ログアウト時にsession Cookieを削除する
 - Middlewareでsession Cookieを検証し、ユーザーIDをcontextへ渡す
 - 認可コード交換でtoken endpointへ必要な値を送信し、`id_token`を取得する
@@ -39,6 +43,20 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 
 - ヘルスチェックで`200 OK`と`{"status":"ok"}`を返す
 
+`like.go`では、次の観点をテストしている。
+
+- いいね・いいね解除で`204 No Content`を返す
+- URLの`postId`をServiceへ渡す
+- UUID形式でない`postId`を拒否する
+- Serviceの入力エラーを`400 Bad Request`へ変換する
+- Serviceの内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
+
+`notification.go`では、次の観点をテストしている。
+
+- ログインユーザー宛の通知一覧をJSONで返す
+- 未ログイン時の通知一覧取得を`401 Unauthorized`へ変換する
+- Serviceの内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
+
 `swagger.go`では、次の観点をテストしている。
 
 - Swagger UIのHTMLを返す
@@ -61,6 +79,7 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 |           | Login                 |     100.0% |
 |           | Callback              |     100.0% |
 |           | Me                    |      91.7% |
+|           | UpdateMe              |      94.4% |
 |           | Logout                |     100.0% |
 |           | Middleware            |     100.0% |
 |           | exchangeCode          |      95.5% |
@@ -74,6 +93,12 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 |           | followeeIDFromRequest |     100.0% |
 | health.go | NewHealthController   |     100.0% |
 |           | Health                |     100.0% |
+| like.go   | NewLikeController     |     100.0% |
+|           | Like                  |     100.0% |
+|           | Unlike                |     100.0% |
+|           | handleLikeAction      |     100.0% |
+| notification.go | NewNotificationController | 100.0% |
+|           | List                  |      90.9% |
 | post.go   | NewPostController     |     100.0% |
 |           | Create                |      90.9% |
 | swagger.go | SwaggerUI            |     100.0% |
@@ -81,7 +106,7 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 |           | readOpenAPISpec       |     100.0% |
 | timeline.go | NewTimelineController |   100.0% |
 |           | List                  |     100.0% |
-| 合計      | -                     |      98.0% |
+| 合計      | -                     |      97.6% |
 
 計測コマンド：
 
@@ -160,10 +185,42 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 `follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除をrepositoryへ委譲する
+- フォロー成功時に通知作成を呼び出す
+- フォロー登録時のrepositoryエラーと通知作成エラーを呼び出し元へ返す
 - 自分自身のフォロー・フォロー解除を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
 - フォロー解除対象が存在しない場合は`R004 resource not found`へ変換する
+- フォロー解除時のrepositoryエラーを呼び出し元へ返す
 - フォロー中ユーザーIDの取得をrepositoryへ委譲する
+
+`like.go`では、次の観点をテストしている。
+
+- いいね登録をrepositoryへ委譲する
+- いいね登録成功時に通知作成を呼び出す
+- いいね対象の投稿が存在しない場合は`R004 resource not found`へ変換する
+- いいね登録時のrepositoryエラーと通知作成エラーを呼び出し元へ返す
+- いいね解除をrepositoryへ委譲する
+- いいね解除対象が存在しない場合は`R004 resource not found`へ変換する
+- いいね解除時のrepositoryエラーを呼び出し元へ返す
+
+`notification.go`では、次の観点をテストしている。
+
+- フォロー通知作成をrepositoryへ委譲する
+- いいね通知作成をrepositoryへ委譲する
+- 通知一覧取得をrepositoryへ委譲する
+
+`timeline.go`では、次の観点をテストしている。
+
+- タイムライン取得をrepositoryへ委譲する
+
+`user.go`では、次の観点をテストしている。
+
+- OIDCユーザーの取得または作成をrepositoryへ委譲する
+- ユーザーIDによる取得をrepositoryへ委譲する
+- プロフィール更新リクエストの空白を除去してrepositoryへ渡す
+- handleは半角英数字とアンダースコアのみ、13文字以下に制限する
+- 表示名の空文字と100文字超過を拒否する
+- bioの160文字超過を拒否する
 
 ### カバレッジ結果
 
@@ -174,11 +231,22 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 |           | Unfollow               |     100.0% |
 |           | ListFolloweeIDs        |     100.0% |
 |           | validateFollowRelation |     100.0% |
+| like.go   | NewLikeService         |     100.0% |
+|           | Like                   |     100.0% |
+|           | Unlike                 |     100.0% |
+| notification.go | NewNotificationService | 100.0% |
+|           | CreateFollow           |     100.0% |
+|           | CreateLike             |     100.0% |
+|           | List                   |     100.0% |
 | post.go   | NewPostService         |     100.0% |
 |           | Create                 |     100.0% |
 | timeline.go | NewTimelineService   |     100.0% |
 |           | List                   |     100.0% |
-| 合計      | -                      |      95.8% |
+| user.go   | NewUserService         |     100.0% |
+|           | FindOrCreateByOIDC     |     100.0% |
+|           | FindByID               |     100.0% |
+|           | UpdateProfile          |     100.0% |
+| 合計      | -                      |     100.0% |
 
 計測コマンド：
 
@@ -206,11 +274,37 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 - フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
 
+`like.go`では、次の観点をテストしている。
+
+- いいね登録SQLと引数を検証する
+- いいね登録対象の投稿が存在しない場合は`sql.ErrNoRows`を返す
+- いいね解除SQLと引数を検証する
+- いいね解除対象が存在しない場合は`sql.ErrNoRows`を返す
+- ExecとRowsAffectedのDBエラーをアプリケーションエラーへ分類する
+
+`notification.go`では、次の観点をテストしている。
+
+- フォロー通知作成SQLと引数を検証する
+- 自分自身へのフォロー通知は作成しない
+- いいね通知作成SQLと引数を検証する
+- 自分自身へのいいね通知は作成しない
+- 通知一覧取得SQLと結果マッピングを検証する
+- Query・ScanのDBエラーをアプリケーションエラーへ分類する
+
 `timeline.go`では、次の観点をテストしている。
 
 - `for_you`のタイムライン取得SQLと結果マッピングを検証する
 - `following`のタイムライン取得SQLと引数を検証する
 - Query・Scan・RowsのDBエラーをアプリケーションエラーへ分類する
+
+`user.go`では、次の観点をテストしている。
+
+- OIDCユーザーの作成または更新SQLと結果マッピングを検証する
+- displayName未指定時に生成handleを表示名へ使う
+- ユーザーIDによる取得SQLと結果マッピングを検証する
+- プロフィール更新SQLと結果マッピングを検証する
+- QueryのDBエラーをアプリケーションエラーへ分類する
+- OIDC由来の初期handleが13文字以下になることを検証する
 
 `postgres_error.go`では、次の観点をテストしている。
 
@@ -229,12 +323,24 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 |               | Unfollow              |      88.9% |
 |               | ListFolloweeIDs       |     100.0% |
 |               | execute               |     100.0% |
+| like.go       | NewLikeRepository     |     100.0% |
+|               | Like                  |     100.0% |
+|               | Unlike                |     100.0% |
+| notification.go | NewNotificationRepository | 100.0% |
+|               | CreateFollow          |     100.0% |
+|               | CreateLike            |     100.0% |
+|               | List                  |      93.8% |
 | post.go       | NewPostRepository     |     100.0% |
 |               | Create                |     100.0% |
 | postgres_error.go | classifyPostgresError | 100.0% |
 | timeline.go   | NewTimelineRepository |     100.0% |
 |               | List                  |     100.0% |
-| 合計          | -                     |      98.5% |
+| user.go       | NewUserRepository     |     100.0% |
+|               | FindOrCreateByOIDC    |     100.0% |
+|               | FindByID              |     100.0% |
+|               | UpdateProfile         |     100.0% |
+|               | handleFromOIDC        |      93.3% |
+| 合計          | -                     |      97.9% |
 
 計測コマンド：
 

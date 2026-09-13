@@ -342,6 +342,11 @@ button {
   background: var(--surface-hover);
 }
 
+.tab:focus,
+.tab:focus-visible {
+  outline: none;
+}
+
 .tab.active {
   color: var(--text);
 }
@@ -707,6 +712,29 @@ button {
   position: absolute;
   right: 16px;
   top: 198px;
+}
+
+.profile-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.profile-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.profile-form input,
+.profile-form textarea {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 10px 12px;
 }
 
 .more-menu {

@@ -289,13 +289,18 @@ internal/models/ ─────── データモデル
 
 ### データベースの構成
 
-ユーザー、投稿、フォロー関係はそれぞれ1つのテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
+ユーザー、投稿、フォロー関係、いいね、通知はそれぞれテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
 
 ```mermaid
 erDiagram
     users ||--o{ posts : "author_id"
     users ||--o{ follows : "follower_id"
     users ||--o{ follows : "followee_id"
+    users ||--o{ post_likes : "user_id"
+    posts ||--o{ post_likes : "post_id"
+    users ||--o{ notifications : "recipient_id"
+    users ||--o{ notifications : "actor_id"
+    posts ||--o{ notifications : "post_id"
 
     users {
         UUID id PK
@@ -317,10 +322,27 @@ erDiagram
         UUID followee_id PK, FK
         TIMESTAMPTZ created_at
     }
+
+    post_likes {
+        UUID post_id PK, FK
+        UUID user_id PK, FK
+        TIMESTAMPTZ created_at
+    }
+
+    notifications {
+        UUID id PK
+        UUID recipient_id FK
+        UUID actor_id FK
+        VARCHAR type
+        UUID post_id FK
+        TIMESTAMPTZ created_at
+    }
 ```
 
 `follows`は、同じ`users`テーブルを2つの役割で参照する。たとえば田中が佐藤をフォローすると、`follower_id`は田中のID、`followee_id`は佐藤のIDとなる。`(follower_id, followee_id)`を複合主キーにすることで、同じユーザーを重複してフォローできない。また、`follower_id <> followee_id`の制約により、自分自身のフォローを防ぐ。
 
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
+
+いいねは`post_likes`で管理し、`(post_id, user_id)`を複合主キーにすることで同じ投稿への重複いいねを防ぐ。フォロー・いいねの発生時には`notifications`へ通知を保存する。通知は`recipient_id`が通知を受け取るユーザー、`actor_id`が操作したユーザーを表し、`type`で`follow`と`like`を区別する。現時点では通知の既読・未読は管理せず、通知一覧は自分宛ての通知を新しい順で取得する。
 
 ## 7. 今後の拡張性や運用を見据えた懸念点

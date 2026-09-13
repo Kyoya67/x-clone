@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { fetchNotifications } from '../api/notifications'
 import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
@@ -8,6 +9,7 @@ type Theme = 'light' | 'dark'
 
 export function Sidebar() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('theme')
     return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'light'
@@ -18,6 +20,22 @@ export function Sidebar() {
   const displayName = user?.displayName ?? currentUser.displayName
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const avatar = displayName.slice(0, 1) || 'U'
+
+  useEffect(() => {
+    let cancelled = false
+    const loadNotifications = async () => {
+      try {
+        const notifications = await fetchNotifications()
+        if (!cancelled) setNotificationCount(notifications.length)
+      } catch {
+        if (!cancelled) setNotificationCount(0)
+      }
+    }
+    void loadNotifications()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -51,6 +69,7 @@ export function Sidebar() {
         <NavLink className="nav-item" to="/notifications">
           <Icon name="bell" />
           <span>通知</span>
+          {notificationCount > 0 && <span className="badge">{notificationCount}</span>}
         </NavLink>
         <NavLink className="nav-item" to="/messages">
           <Icon name="chat" />

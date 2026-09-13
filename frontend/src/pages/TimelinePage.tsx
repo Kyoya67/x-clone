@@ -1,13 +1,20 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { likePost, unlikePost } from '../api/likes'
 import { createPost } from '../api/posts'
 import { fetchTimeline, TimelineFeed } from '../api/timeline'
 import { Composer } from '../components/Composer'
 import { Feed } from '../components/Feed'
 import { PageLayout } from '../components/PageLayout'
 import { TimelineHeader } from '../components/TimelineHeader'
+import { currentUser } from '../config/currentUser'
+import { useOptionalAuth } from '../state/AuthContext'
 import { Post } from '../types/post'
 
 export function TimelinePage() {
+  const auth = useOptionalAuth()
+  const user = auth?.user
+  const displayName = user?.displayName ?? currentUser.displayName
+  const avatar = displayName.slice(0, 1) || 'U'
   const [posts, setPosts] = useState<Post[]>([])
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('おすすめ')
@@ -60,7 +67,10 @@ export function TimelinePage() {
       setIsPublishing(false)
     }
   }
-  const toggleLike = (id: string) =>
+  const toggleLike = async (id: string) => {
+    const target = posts.find((post) => post.id === id)
+    if (!target) return
+
     setPosts((current) =>
       current.map((post) =>
         post.id === id
@@ -68,11 +78,26 @@ export function TimelinePage() {
           : post,
       ),
     )
+    try {
+      if (target.liked) {
+        await unlikePost(id)
+      } else {
+        await likePost(id)
+      }
+    } catch {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: target.liked, likes: target.likes } : post,
+        ),
+      )
+      setTimelineError('いいね操作に失敗しました。時間をおいて再度お試しください。')
+    }
+  }
   return (
     <PageLayout>
       <div className="timeline">
         <TimelineHeader activeTab={activeTab} onTabChange={setActiveTab} />
-        <Composer draft={draft} onDraftChange={setDraft} onPublish={publish} />
+        <Composer avatar={avatar} draft={draft} onDraftChange={setDraft} onPublish={publish} />
         {publishError && <p role="alert">{publishError}</p>}
         {timelineError && <p role="alert">{timelineError}</p>}
         {isLoading ? (
