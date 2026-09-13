@@ -12,6 +12,20 @@ beforeEach(() => {
     'fetch',
     vi.fn((input: RequestInfo | URL) => {
       const url = requestURL(input)
+      if (url === '/auth/me') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: '00000000-0000-0000-0000-000000000001',
+              handle: 'taro_tanaka',
+              displayName: '田中 太郎',
+              bio: '',
+              createdAt: '2026-09-09T00:00:00Z',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+      }
       if (url === '/api/timeline?feed=for-you') {
         return Promise.resolve(
           new Response(
@@ -55,10 +69,10 @@ describe('App routes', () => {
     ['/messages', 'チャット'],
     ['/profile', 'プロフィール'],
     ['/more', 'もっと見る'],
-  ])('renders %s at %s', (path, title) => {
+  ])('renders %s at %s', async (path, title) => {
     window.history.pushState({}, '', path)
     render(<App />)
-    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
   })
 
   it('navigates to a profile when clicking an author name', async () => {
