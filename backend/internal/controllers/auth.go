@@ -29,10 +29,13 @@ type AuthConfig struct {
 }
 
 type AuthController struct {
-	config     AuthConfig
-	httpClient *http.Client
-	users      UserService
-	now        func() time.Time
+	config        AuthConfig
+	httpClient    *http.Client
+	users         UserService
+	now           func() time.Time
+	randomToken   func() (string, error)
+	signSession   func(userID, secret string, now time.Time) (string, error)
+	verifyIDToken func(ctx context.Context, client *http.Client, token, issuer, audience, nonce string, now time.Time) (auth.IDTokenClaims, error)
 }
 
 type UserService interface {
@@ -42,27 +45,30 @@ type UserService interface {
 
 func NewAuthController(config AuthConfig, users UserService) *AuthController {
 	return &AuthController{
-		config:     config,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		users:      users,
-		now:        time.Now,
+		config:        config,
+		httpClient:    &http.Client{Timeout: 10 * time.Second},
+		users:         users,
+		now:           time.Now,
+		randomToken:   auth.NewRandomToken,
+		signSession:   auth.SignSession,
+		verifyIDToken: auth.VerifyIDToken,
 	}
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 	setAuthNoStore(w)
 
-	state, err := auth.NewRandomToken()
+	state, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	nonce, err := auth.NewRandomToken()
+	nonce, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	verifier, err := auth.NewRandomToken()
+	verifier, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
@@ -113,7 +119,7 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	claims, err := auth.VerifyIDToken(r.Context(), c.httpClient, token.IDToken, c.config.Issuer, c.config.ClientID, nonce, c.now())
+	claims, err := c.verifyIDToken(r.Context(), c.httpClient, token.IDToken, c.config.Issuer, c.config.ClientID, nonce, c.now())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(err, "invalid authentication token"))
 		return
@@ -123,7 +129,7 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		apperrors.ErrorHandler(w, r, err)
 		return
 	}
-	session, err := auth.SignSession(user.ID, c.config.SessionSecret, c.now())
+	session, err := c.signSession(user.ID, c.config.SessionSecret, c.now())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return

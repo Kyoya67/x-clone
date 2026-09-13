@@ -58,19 +58,19 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 | ファイル  | 関数                  | カバレッジ |
 | --------- | --------------------- | ---------: |
 | auth.go   | NewAuthController     |     100.0% |
-|           | Login                 |      76.9% |
-|           | Callback              |      48.5% |
-|           | Me                    |      75.0% |
+|           | Login                 |     100.0% |
+|           | Callback              |     100.0% |
+|           | Me                    |      91.7% |
 |           | Logout                |     100.0% |
-|           | Middleware            |      80.0% |
+|           | Middleware            |     100.0% |
 |           | exchangeCode          |      95.5% |
 |           | cookieValue           |     100.0% |
 |           | setAuthNoStore        |     100.0% |
 | follow.go | NewFollowController   |     100.0% |
 |           | Follow                |     100.0% |
 |           | Unfollow              |     100.0% |
-|           | ListFollowing         |      84.6% |
-|           | handleFollowAction    |      81.8% |
+|           | ListFollowing         |     100.0% |
+|           | handleFollowAction    |     100.0% |
 |           | followeeIDFromRequest |     100.0% |
 | health.go | NewHealthController   |     100.0% |
 |           | Health                |     100.0% |
@@ -80,8 +80,8 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 |           | OpenAPISpec           |     100.0% |
 |           | readOpenAPISpec       |     100.0% |
 | timeline.go | NewTimelineController |   100.0% |
-|           | List                  |      86.7% |
-| 合計      | -                     |      81.7% |
+|           | List                  |     100.0% |
+| 合計      | -                     |      98.0% |
 
 計測コマンド：
 
@@ -89,6 +89,61 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 cd backend
 go test ./internal/controllers -coverprofile=/tmp/controller-cover.out
 go tool cover -func=/tmp/controller-cover.out
+```
+
+## internal/auth
+
+認証処理は、外部IdP・Cookie・session署名などの境界をFakeやテスト用鍵へ差し替えて検証する。
+
+`context.go`では、次の観点をテストしている。
+
+- contextへログインユーザーIDを格納できる
+- ログインユーザーIDがない場合はエラーを返す
+
+`oidc.go`では、次の観点をテストしている。
+
+- RSA署名付きID tokenをJWKSで検証できる
+- token形式、header、署名、payload、claimsの不正を拒否する
+- JWKS取得・JSON decode・鍵変換の失敗をエラーにする
+
+`pkce.go`では、次の観点をテストしている。
+
+- code verifierからS256形式のcode challengeを生成する
+
+`session.go`では、次の観点をテストしている。
+
+- ランダムtokenを生成する
+- 乱数生成失敗をエラーとして返す
+- sessionへ署名し、検証後にユーザーIDを取り出せる
+- 不正なsession、署名不一致、期限切れを拒否する
+- session Cookieと一時Cookieを設定・削除する
+
+### カバレッジ結果
+
+| ファイル   | 関数                 | カバレッジ |
+| ---------- | -------------------- | ---------: |
+| context.go | WithUserID           |     100.0% |
+|            | UserID               |     100.0% |
+| oidc.go    | VerifyIDToken        |     100.0% |
+|            | fetchPublicKey       |      93.8% |
+|            | rsaPublicKey         |     100.0% |
+| pkce.go    | CodeChallenge        |     100.0% |
+| session.go | NewRandomToken       |     100.0% |
+|            | SignSession          |     100.0% |
+|            | VerifySession        |      93.8% |
+|            | SetSessionCookie     |     100.0% |
+|            | ClearSessionCookie   |     100.0% |
+|            | SetTemporaryCookie   |     100.0% |
+|            | ClearTemporaryCookie |     100.0% |
+|            | sign                 |     100.0% |
+| 合計       | -                    |      97.9% |
+
+計測コマンド：
+
+```bash
+cd backend
+go test ./internal/auth -coverprofile=/tmp/auth-cover.out
+go tool cover -func=/tmp/auth-cover.out
 ```
 
 ## internal/services
