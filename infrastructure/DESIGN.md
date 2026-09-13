@@ -1,5 +1,46 @@
 # AWSインフラ設計メモ
 
+## 現在のAWSリソース構成
+
+### VPC・サブネットとリソース配置
+
+VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
+
+| VPC内のサブネット | CIDR          | 現在配置されているリソース                        |
+| ----------------- | ------------- | ------------------------------------------------- |
+| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）。外向き通信とSSM接続の中継 |
+| ├ public-1c       | 10.0.64.0/18  | なし                                              |
+| ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）                     |
+| └ private-1c      | 10.0.192.0/18 | なし                                              |
+
+### リソースとセキュリティーグループの対応・許可する通信
+
+| AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
+| ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
+| ECS：api          | api                    | APIサーバー               | nat-instance SGからTCP 8080（手動API確認）                                                                      | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
+
+### IAMユーザー・ロール・ポリシー
+
+| 利用者・AWSリソース | IAMユーザー／ロール名                    | 用途                                     | アタッチする権限ポリシー                     | 許可する操作・対象                                                                                   |
+| ------------------- | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 開発者PC            | x-clone-terraform-stg（IAMユーザー）     | Terraform・AWS CLI・DB管理コマンドの実行 | AdministratorAccess（AWS管理）               | 全AWS操作・全リソース（ポリシー上の許可。SCP等の制約は未確認）                                       |
+| ECS：api            | api-task-execution（実行ロール）         | ECS基盤によるコンテナ起動・ログ送信      | api-task-execution（カスタマー管理）         | ECR apiのイメージ取得<br>/ecs/backendへのログ送信<br>db/app_userのSecret取得                         |
+| ECS：api            | api-task（タスクロール）                 | APIプログラムのAWS操作用                 | なし                                         | AWS操作権限なし。DBの読み書きはapp_userのSQL権限                                                     |
+| ECS：db-migrator    | db-migrator-task-execution（実行ロール） | ECS基盤によるコンテナ起動・ログ送信      | db-migrator-task-execution（カスタマー管理） | ECR db-migratorのイメージ取得<br>/ecs/backend-migrationへのログ送信<br>db/migration_userのSecret取得 |
+| ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
+| EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
+
+### DBユーザー・Secret・実行場所の関係
+
+| DBユーザー     | Secret            | 使う場所                                     | 用途                                                  |
+| -------------- | ----------------- | -------------------------------------------- | ----------------------------------------------------- |
+| dbadmin        | db/dbadmin        | 開発者PCで実行するDBユーザー初期設定コマンド | 初期設定・ユーザー管理                                |
+| migration_user | db/migration_user | ECSタスク：db-migrator                       | テーブル作成・変更、migration.schema_migrationsの管理 |
+| app_user       | db/app_user       | ECSサービスで常時起動するAPIタスク           | アプリデータの読み書き                                |
+
 ## DBユーザー・Secret・実行場所の設計
 
 DBユーザー登録の初期設定では、次のバックエンド側ファイルを使う。
@@ -80,7 +121,7 @@ dbadminのSecret値をTerraformのdata sourceで読み込んでRDSに渡す構�
 
 SSMポート転送は、開発者PCからRDSへ一時的に到達するための経路。db-user実行時だけ使い、APIタスクやマイグレーションタスクでは使わない。
 
-## migration_user：マイグレーション（現在の手動起動と将来のCI/CD）
+## マイグレーション（現在の手動起動と将来のCI/CD）
 
 現在も将来も、db-migratorは処理が終わると終了する単発のECSタスク。将来は起動元を開発者PCからCI/CDへ切り替える。CI/CDは未実装。
 
@@ -104,7 +145,7 @@ flowchart TD
 
 CI/CDはDBへ直接接続しない。起動元を切り替えても、Secretの取得はECS基盤、DBへの接続・SQL実行はタスク内のGoプログラムが担当する。マイグレーションタスクからRDSへの接続にSSMポート転送は使わない。
 
-## app_user：APIからのデータ読み書き
+## APIからのデータ読み書き
 
 ```mermaid
 flowchart LR
