@@ -4,6 +4,13 @@
 
 Controllerの依存先はFakeへ差し替え、HTTPリクエストに対するレスポンスを検証する。
 
+`auth.go`では、次の観点をテストしている。
+
+- ログイン開始時に認可URLへリダイレクトする
+- 認証系レスポンスへ`Cache-Control: no-store`を設定する
+- callbackのstate不一致を`401 Unauthorized`へ変換する
+- callback失敗時にstateやcodeなどの内部詳細をレスポンスへ含めない
+
 `post.go`では、次の観点をテストしている。
 
 - 正常なリクエストで`201 Created`と投稿データを返す
@@ -42,22 +49,31 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 
 | ファイル  | 関数                  | カバレッジ |
 | --------- | --------------------- | ---------: |
+| auth.go   | NewAuthController     |     100.0% |
+|           | Login                 |      76.9% |
+|           | Callback              |      21.2% |
+|           | Me                    |       0.0% |
+|           | Logout                |       0.0% |
+|           | Middleware            |       0.0% |
+|           | exchangeCode          |       0.0% |
+|           | cookieValue           |      75.0% |
+|           | setAuthNoStore        |     100.0% |
 | follow.go | NewFollowController   |     100.0% |
 |           | Follow                |     100.0% |
 |           | Unfollow              |     100.0% |
-|           | ListFollowing         |     100.0% |
-|           | handleFollowAction    |     100.0% |
+|           | ListFollowing         |      84.6% |
+|           | handleFollowAction    |      81.8% |
 |           | followeeIDFromRequest |     100.0% |
 | health.go | NewHealthController   |     100.0% |
 |           | Health                |     100.0% |
 | post.go   | NewPostController     |     100.0% |
-|           | Create                |     100.0% |
+|           | Create                |      90.9% |
 | swagger.go | SwaggerUI            |     100.0% |
 |           | OpenAPISpec           |     100.0% |
 |           | readOpenAPISpec       |     100.0% |
 | timeline.go | NewTimelineController |   100.0% |
-|           | List                  |     100.0% |
-| 合計      | -                     |     100.0% |
+|           | List                  |      86.7% |
+| 合計      | -                     |      56.4% |
 
 計測コマンド：
 
