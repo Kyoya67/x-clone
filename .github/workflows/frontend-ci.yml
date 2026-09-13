@@ -8,6 +8,7 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
+      - '.github/workflows/frontend-cd.yml'
   push:
     branches:
       - develop
@@ -15,6 +16,7 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
+      - '.github/workflows/frontend-cd.yml'
 
 jobs:
   check:
