@@ -23,7 +23,10 @@ func TestUserRepositoryFindOrCreateByOIDC(t *testing.T) {
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
 		ON CONFLICT (oidc_subject) DO UPDATE
 		SET email = EXCLUDED.email,
-		    display_name = EXCLUDED.display_name
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
 		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed`)).
 		WithArgs("subject-1234567890", "kyoya@example.com", "user_subject-", "京谷").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "handle", "display_name", "bio", "created_at", "needs_profile_setup"}).
@@ -50,7 +53,10 @@ func TestUserRepositoryFindOrCreateByOIDCUsesHandleAsDisplayNameFallback(t *test
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
 		ON CONFLICT (oidc_subject) DO UPDATE
 		SET email = EXCLUDED.email,
-		    display_name = EXCLUDED.display_name
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
 		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed`)).
 		WithArgs("short", "not-valid-email-prefix@example.com", "user_short", "user_short").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "handle", "display_name", "bio", "created_at", "needs_profile_setup"}).
@@ -76,13 +82,46 @@ func TestUserRepositoryFindOrCreateByOIDCReturnsError(t *testing.T) {
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
 		ON CONFLICT (oidc_subject) DO UPDATE
 		SET email = EXCLUDED.email,
-		    display_name = EXCLUDED.display_name
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
 		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed`)).
 		WithArgs("subject", "user@example.com", "user_subject", "User").
 		WillReturnError(errors.New("query failed"))
 
 	if _, err := NewUserRepository(db).FindOrCreateByOIDC(context.Background(), "subject", "user@example.com", "User"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestUserRepositoryFindOrCreateByOIDCPreservesCompletedProfileFields(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	createdAt := time.Now()
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO users (id, oidc_subject, email, handle, display_name, bio, profile_completed)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
+		ON CONFLICT (oidc_subject) DO UPDATE
+		SET email = EXCLUDED.email,
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
+		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed`)).
+		WithArgs("subject", "user@example.com", "user_subject", "Google Name").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "handle", "display_name", "bio", "created_at", "needs_profile_setup"}).
+			AddRow("user-1", "ore_handle", "オレは何？", "bio", createdAt, false))
+
+	user, err := NewUserRepository(db).FindOrCreateByOIDC(context.Background(), "subject", "user@example.com", "Google Name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.DisplayName != "オレは何？" || user.Handle != "ore_handle" || user.NeedsProfileSetup {
+		t.Fatalf("unexpected user: %+v", user)
 	}
 }
 

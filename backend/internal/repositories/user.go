@@ -29,7 +29,10 @@ func (r *UserRepository) FindOrCreateByOIDC(ctx context.Context, subject, email,
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
 		ON CONFLICT (oidc_subject) DO UPDATE
 		SET email = EXCLUDED.email,
-		    display_name = EXCLUDED.display_name
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
 		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed
 	`, subject, email, handle, displayName).Scan(
 		&user.ID,
