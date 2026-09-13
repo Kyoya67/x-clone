@@ -41,6 +41,16 @@ beforeEach(() => {
                     displayName: '山本 健',
                   },
                 },
+                {
+                  id: 'post-2',
+                  content: '佐藤さんの投稿です。',
+                  createdAt: '2026-09-09T00:00:00Z',
+                  author: {
+                    id: '00000000-0000-0000-0000-000000000004',
+                    handle: 'sho_sato',
+                    displayName: '佐藤 翔',
+                  },
+                },
               ],
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -83,8 +93,20 @@ describe('App routes', () => {
     render(<App />)
     await user.click(await screen.findByRole('link', { name: '山本 健' }))
     expect(screen.getByRole('heading', { name: 'プロフィール' })).toBeInTheDocument()
-    expect(screen.getByText('@ken_yamamoto')).toBeInTheDocument()
-    expect(screen.getByText('山本 健')).toBeInTheDocument()
+    expect(screen.getAllByText('@ken_yamamoto')).not.toHaveLength(0)
+    expect(screen.getAllByText('山本 健')).not.toHaveLength(0)
+  })
+
+  it('shows only posts from the selected user profile', async () => {
+    window.history.pushState({}, '', '/users/sho_sato')
+    render(<App />)
+
+    expect(await screen.findAllByText('佐藤 翔')).not.toHaveLength(0)
+    expect(await screen.findByText('佐藤さんの投稿です。')).toBeInTheDocument()
+    expect(screen.queryByText('テスト投稿です。')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('ユーザーのプロフィールとポストを表示します。'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows the account menu and logs out from the current account', async () => {
