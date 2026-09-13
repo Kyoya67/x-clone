@@ -5,24 +5,35 @@ on:
   push:
     branches:
       - develop
+      - main
     paths:
-      - "backend/**"
+      - "backend/cmd/api/**"
+      - "backend/cmd/healthcheck/**"
+      - "backend/cmd/migrate-rds/**"
+      - "backend/internal/**"
+      - "backend/migrations/**"
+      - "backend/scripts/ecs-migrate.sh"
+      - "backend/Dockerfile"
+      - "backend/go.mod"
+      - "backend/go.sum"
       - ".github/workflows/backend-cd.yml"
 
 permissions:
   contents: read
+  id-token: write
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-  ECS_CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME || 'x-clone' }}
-  ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME || 'api' }}
-  API_TASK_FAMILY: ${{ vars.API_TASK_FAMILY || 'api' }}
-  MIGRATION_TASK_FAMILY: ${{ vars.MIGRATION_TASK_FAMILY || 'db-migrator' }}
-  API_ECR_REPOSITORY: ${{ vars.API_ECR_REPOSITORY || 'api' }}
-  MIGRATION_ECR_REPOSITORY: ${{ vars.MIGRATION_ECR_REPOSITORY || 'db-migrator' }}
-  API_HEALTH_URL: ${{ vars.API_HEALTH_URL || 'https://api-v1.stg.x-clone.kyo8.dev/health' }}
-  DEPLOY_ENV: ${{ vars.DEPLOY_ENV || 'stg' }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets[github.ref_name == 'main' && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AWS_ACCOUNT_ID: ${{ vars[github.ref_name == 'main' && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
+  ECS_CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME }}
+  ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
+  API_TASK_FAMILY: ${{ vars.API_TASK_FAMILY }}
+  MIGRATION_TASK_FAMILY: ${{ vars.MIGRATION_TASK_FAMILY }}
+  API_ECR_REPOSITORY: ${{ vars.API_ECR_REPOSITORY }}
+  MIGRATION_ECR_REPOSITORY: ${{ vars.MIGRATION_ECR_REPOSITORY }}
+  API_HEALTH_URL: ${{ vars[github.ref_name == 'main' && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
+  DEPLOY_ENV: ${{ vars[github.ref_name == 'main' && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
 
 jobs:
   deploy:
@@ -50,12 +61,26 @@ jobs:
       - name: Run vet
         run: go vet ./...
 
+      - name: Validate deployment variables
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" || { echo 'AWS_REGION repository variable is required'; exit 1; }
+          test -n "$AWS_ROLE_ARN" || { echo 'AWS_ROLE_ARN_STG or AWS_ROLE_ARN_PRD repository secret is required'; exit 1; }
+          test -n "$AWS_ACCOUNT_ID" || { echo 'AWS_ACCOUNT_ID_STG or AWS_ACCOUNT_ID_PRD repository variable is required'; exit 1; }
+          test -n "$ECS_CLUSTER_NAME" || { echo 'ECS_CLUSTER_NAME repository variable is required'; exit 1; }
+          test -n "$ECS_SERVICE_NAME" || { echo 'ECS_SERVICE_NAME repository variable is required'; exit 1; }
+          test -n "$API_TASK_FAMILY" || { echo 'API_TASK_FAMILY repository variable is required'; exit 1; }
+          test -n "$MIGRATION_TASK_FAMILY" || { echo 'MIGRATION_TASK_FAMILY repository variable is required'; exit 1; }
+          test -n "$API_ECR_REPOSITORY" || { echo 'API_ECR_REPOSITORY repository variable is required'; exit 1; }
+          test -n "$MIGRATION_ECR_REPOSITORY" || { echo 'MIGRATION_ECR_REPOSITORY repository variable is required'; exit 1; }
+          test -n "$API_HEALTH_URL" || { echo 'API_HEALTH_URL_STG or API_HEALTH_URL_PRD repository variable is required'; exit 1; }
+          test -n "$DEPLOY_ENV" || { echo 'DEPLOY_ENV_STG or DEPLOY_ENV_PRD repository variable is required'; exit 1; }
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -63,8 +88,6 @@ jobs:
       - name: Build and push images
         run: |
           set -euo pipefail
-          test -n "$AWS_ACCOUNT_ID" || { echo 'AWS_ACCOUNT_ID repository variable is required'; exit 1; }
-
           registry="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           image_tag="${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
 

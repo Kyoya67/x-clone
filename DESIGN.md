@@ -172,8 +172,8 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 | 採用 | 選択肢                 | 役割                         | 判断理由                                                                                                                                 |
 | ---- | ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| ⭕️   | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | GitHubリポジトリでSecretsを設定できるため、短期間でAmplify・ECR・ECSへのデプロイを自動化できる。長期的にはキー管理が課題になる。         |
-| —    | GitHub OIDC            | GitHub ActionsからAWS API実行 | 長期キーを持たずに一時認証できるため本来はこちらが望ましいが、IAMロールの信頼ポリシー設計と権限整理が必要なため後続対応とする。           |
+| ⭕️   | GitHub OIDC            | GitHub ActionsからAWS API実行 | 長期AWSアクセスキーをGitHub Secretsへ保存せず、一時認証でAmplify・ECR・ECSへのデプロイを実行できるため採用する。                         |
+| —    | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | 実装は単純だが、長期キーをGitHub Secretsで管理する必要があるため採用しない。                                                             |
 
 AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
 

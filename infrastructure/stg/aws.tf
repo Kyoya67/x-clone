@@ -106,6 +106,9 @@ module "iam" {
   migration_repository_arn = module.ecr.db_migrator_arn
   migration_log_group_arn  = module.migration_logs.arn
   migration_secret_arn     = module.secrets_manager.migration_user_secret_arn
+  github_repository        = "Kaminashi-Inc/ENG-1103_Kyoya67"
+  github_oidc_subjects     = ["repo:Kaminashi-Inc/ENG-1103_Kyoya67:ref:refs/heads/develop"]
+  amplify_app_arn          = module.amplify.app_arn
   tags                     = local.common_tags
 }
 

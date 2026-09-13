@@ -20,3 +20,8 @@ output "db_migrator_execution_role_arn" {
   depends_on = [aws_iam_role_policy_attachment.db_migrator_execution]
 }
 output "db_migrator_task_role_arn" { value = aws_iam_role.db_migrator_task.arn }
+
+output "github_actions_cd_role_arn" {
+  value      = aws_iam_role.github_actions_cd.arn
+  depends_on = [aws_iam_role_policy_attachment.github_actions_cd]
+}

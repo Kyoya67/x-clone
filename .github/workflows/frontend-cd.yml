@@ -5,17 +5,29 @@ on:
   push:
     branches:
       - develop
+      - main
     paths:
-      - "frontend/**"
+      - "frontend/src/**"
+      - "frontend/public/**"
+      - "frontend/index.html"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/tsconfig*.json"
+      - "frontend/vite.config.ts"
+      - "frontend/vitest.config.ts"
+      - "frontend/.prettierrc"
+      - "frontend/.prettierignore"
       - ".github/workflows/frontend-cd.yml"
 
 permissions:
   contents: read
+  id-token: write
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
-  AMPLIFY_APP_ID: ${{ vars.AMPLIFY_APP_ID }}
-  AMPLIFY_BRANCH_NAME: ${{ vars.AMPLIFY_BRANCH_NAME || 'stg' }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets[github.ref_name == 'main' && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AMPLIFY_APP_ID: ${{ vars[github.ref_name == 'main' && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
+  AMPLIFY_BRANCH_NAME: ${{ vars.AMPLIFY_BRANCH_NAME }}
 
 jobs:
   deploy:
@@ -47,17 +59,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Validate deployment variables
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" || { echo 'AWS_REGION repository variable is required'; exit 1; }
+          test -n "$AWS_ROLE_ARN" || { echo 'AWS_ROLE_ARN_STG or AWS_ROLE_ARN_PRD repository secret is required'; exit 1; }
+          test -n "$AMPLIFY_APP_ID" || { echo 'AMPLIFY_APP_ID_STG or AMPLIFY_APP_ID_PRD repository variable is required'; exit 1; }
+          test -n "$AMPLIFY_BRANCH_NAME" || { echo 'AMPLIFY_BRANCH_NAME repository variable is required'; exit 1; }
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
 
       - name: Deploy to Amplify Hosting
         run: |
           set -euo pipefail
-          test -n "$AMPLIFY_APP_ID" || { echo 'AMPLIFY_APP_ID repository variable is required'; exit 1; }
 
           zip_file="$(mktemp --suffix=.zip)"
           trap 'rm -f -- "$zip_file" deployment.json job.json' EXIT
