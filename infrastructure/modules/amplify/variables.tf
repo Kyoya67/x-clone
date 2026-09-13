@@ -6,6 +6,11 @@ variable "branch_name" {
   type = string
 }
 
+variable "stage" {
+  type    = string
+  default = "DEVELOPMENT"
+}
+
 variable "domain_name" {
   description = "フロント公開用のホストゾーンルートのドメイン名。"
   type        = string

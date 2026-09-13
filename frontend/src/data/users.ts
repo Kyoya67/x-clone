@@ -1,3 +1,5 @@
+import { currentUser, showDemoUsers } from '../config/currentUser'
+
 export type User = {
   id: string
   handle: string
@@ -9,11 +11,7 @@ export type User = {
 
 export const users: User[] = [
   {
-    id: '00000000-0000-0000-0000-000000000001',
-    handle: '@taro_tanaka',
-    displayName: '田中 太郎',
-    bio: 'Webアプリケーションをつくっています。',
-    avatar: '太',
+    ...currentUser,
   },
   {
     id: '00000000-0000-0000-0000-000000000002',
@@ -49,10 +47,12 @@ export const users: User[] = [
   },
 ]
 
+export const visibleUsers = showDemoUsers ? users : [users[0]]
+
 export function findUserByHandle(handle: string) {
-  return users.find((user) => user.handle === handle)
+  return visibleUsers.find((user) => user.handle === handle)
 }
 
 export function findUserByID(id: string) {
-  return users.find((user) => user.id === id)
+  return visibleUsers.find((user) => user.id === id)
 }

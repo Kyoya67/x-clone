@@ -200,7 +200,7 @@ developはstg環境、mainはprd環境へデプロイする。IAMロールARNは
 | Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
 | Variable | AWS_REGION | AWSリージョン |
 | Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD | 環境別Amplify AppのID |
-| Variable | AMPLIFY_BRANCH_NAME | Amplify Branch名 |
+| Variable | AMPLIFY_BRANCH_NAME_STG / AMPLIFY_BRANCH_NAME_PRD | 環境別Amplify Branch名 |
 | Variable | ECS_CLUSTER_NAME | ECSクラスター名 |
 | Variable | ECS_SERVICE_NAME | ECSサービス名 |
 | Variable | API_TASK_FAMILY | APIタスク定義family |
@@ -209,6 +209,24 @@ developはstg環境、mainはprd環境へデプロイする。IAMロールARNは
 | Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名 |
 | Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD | 環境別API health check URL |
 | Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD | サブネット・SG取得用の環境名 |
+
+GitHub Actionsには次の値を設定する。
+
+| 種別 | 名前 | stg | prd |
+| ---- | ---- | --- | --- |
+| Secret | AWS_ROLE_ARN_* | github-actions-cdロールARN | github-actions-cdロールARN |
+| Variable | AWS_ACCOUNT_ID_* | 089244387218 | 517037063215 |
+| Variable | AMPLIFY_APP_ID_* | d2judt2uwax9h6 | d1o16modss0jxj |
+| Variable | API_HEALTH_URL_* | https://api-v1.stg.x-clone.kyo8.dev/health | https://api-v1.x-clone.kyo8.dev/health |
+| Variable | DEPLOY_ENV_* | stg | prd |
+| Variable | AWS_REGION | ap-northeast-1 | ap-northeast-1 |
+| Variable | AMPLIFY_BRANCH_NAME_* | stg | prd |
+| Variable | ECS_CLUSTER_NAME | x-clone | x-clone |
+| Variable | ECS_SERVICE_NAME | api | api |
+| Variable | API_TASK_FAMILY | api | api |
+| Variable | MIGRATION_TASK_FAMILY | db-migrator | db-migrator |
+| Variable | API_ECR_REPOSITORY | api | api |
+| Variable | MIGRATION_ECR_REPOSITORY | db-migrator | db-migrator |
 
 ### backend CDの実行順序
 

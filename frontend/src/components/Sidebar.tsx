@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { Icon } from './Icon'
+import { currentUser } from '../config/currentUser'
 
 export function Sidebar() {
   return (
@@ -40,10 +41,10 @@ export function Sidebar() {
         ポストする
       </button>
       <button className="account-card" type="button">
-        <span className="avatar avatar-blue">太</span>
+        <span className="avatar avatar-blue">{currentUser.avatar}</span>
         <span className="account-copy">
-          <strong>田中 太郎</strong>
-          <small>@taro_tanaka</small>
+          <strong>{currentUser.displayName}</strong>
+          <small>{currentUser.handle}</small>
         </span>
         <span className="more">•••</span>
       </button>

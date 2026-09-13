@@ -20,7 +20,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
   AMPLIFY_APP_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AMPLIFY_APP_ID_PRD' || 'AMPLIFY_APP_ID_STG'] }}
-  AMPLIFY_BRANCH_NAME: ${{ vars.AMPLIFY_BRANCH_NAME }}
+  AMPLIFY_BRANCH_NAME: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AMPLIFY_BRANCH_NAME_PRD' || 'AMPLIFY_BRANCH_NAME_STG'] }}
 
 jobs:
   deploy:
@@ -55,7 +55,7 @@ jobs:
           test -n "$AWS_REGION" || { echo 'AWS_REGION repository variable is required'; exit 1; }
           test -n "$AWS_ROLE_ARN" || { echo 'AWS_ROLE_ARN_STG or AWS_ROLE_ARN_PRD repository secret is required'; exit 1; }
           test -n "$AMPLIFY_APP_ID" || { echo 'AMPLIFY_APP_ID_STG or AMPLIFY_APP_ID_PRD repository variable is required'; exit 1; }
-          test -n "$AMPLIFY_BRANCH_NAME" || { echo 'AMPLIFY_BRANCH_NAME repository variable is required'; exit 1; }
+          test -n "$AMPLIFY_BRANCH_NAME" || { echo 'AMPLIFY_BRANCH_NAME_STG or AMPLIFY_BRANCH_NAME_PRD repository variable is required'; exit 1; }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.2.3

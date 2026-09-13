@@ -76,13 +76,15 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 - 投稿内容の前後の空白を除去してrepositoryへ渡す
 - 1文字未満の投稿を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
-- フォロー中ユーザーIDの取得をrepositoryへ委譲する
+- repositoryへ投稿作成を委譲する
 
 `follow.go`では、次の観点をテストしている。
 
 - フォロー・フォロー解除をrepositoryへ委譲する
 - 自分自身のフォロー・フォロー解除を拒否する
 - バリデーションエラー時にrepositoryを呼び出さない
+- フォロー解除対象が存在しない場合は`R004 resource not found`へ変換する
+- フォロー中ユーザーIDの取得をrepositoryへ委譲する
 
 ### カバレッジ結果
 
@@ -95,14 +97,16 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 |           | validateFollowRelation |     100.0% |
 | post.go   | NewPostService         |     100.0% |
 |           | Create                 |     100.0% |
-| 合計      | -                      |      80.0% |
+| timeline.go | NewTimelineService   |     100.0% |
+|           | List                   |     100.0% |
+| 合計      | -                      |      95.8% |
 
 計測コマンド：
 
 ```bash
 cd backend
-go test ./internal/services -run '^(TestPostService|TestFollowService)' -coverprofile=/tmp/service-cover.out
-go tool cover -func=/tmp/service-cover.out | grep -E 'post.go|follow.go'
+go test ./internal/services -coverprofile=/tmp/service-cover.out
+go tool cover -func=/tmp/service-cover.out
 ```
 
 ## internal/repositories
@@ -119,6 +123,7 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 
 - フォロー登録SQLと引数を検証する
 - フォロー解除SQLと引数を検証する
+- フォロー解除対象が存在しない場合は`sql.ErrNoRows`を返す
 - フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
 
@@ -128,9 +133,13 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 - `following`のタイムライン取得SQLと引数を検証する
 - Query・Scan・RowsのDBエラーをアプリケーションエラーへ分類する
 
-`post_error.go`では、次の観点をテストしている。
+`postgres_error.go`では、次の観点をテストしている。
 
 - PostgreSQLのエラーコードをアプリケーションエラーへ分類する
+- 外部キー違反を`R004 referenced resource not found`へ分類する
+- 一意制約違反、NOT NULL違反、CHECK制約違反、値形式エラーを`R001`へ分類する
+- テーブル・カラム不整合を`D006 database schema is incompatible`へ分類する
+- その他のDBエラーを`D001 temporarily unavailable`へ分類する
 
 ### カバレッジ結果
 
@@ -138,15 +147,15 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 | ------------- | --------------------- | ---------: |
 | follow.go     | NewFollowRepository   |     100.0% |
 |               | Follow                |     100.0% |
-|               | Unfollow              |     100.0% |
+|               | Unfollow              |      88.9% |
 |               | ListFolloweeIDs       |     100.0% |
 |               | execute               |     100.0% |
 | post.go       | NewPostRepository     |     100.0% |
 |               | Create                |     100.0% |
-| post_error.go | classifyPostgresError |     100.0% |
+| postgres_error.go | classifyPostgresError | 100.0% |
 | timeline.go   | NewTimelineRepository |     100.0% |
 |               | List                  |     100.0% |
-| 合計          | -                     |     100.0% |
+| 合計          | -                     |      98.5% |
 
 計測コマンド：
 

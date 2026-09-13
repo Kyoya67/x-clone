@@ -27,7 +27,7 @@ resource "aws_amplify_branch" "this" {
   app_id                      = aws_amplify_app.this.id
   branch_name                 = var.branch_name
   framework                   = "React"
-  stage                       = "DEVELOPMENT"
+  stage                       = var.stage
   enable_auto_build           = false
   enable_pull_request_preview = false
   tags                        = var.tags
