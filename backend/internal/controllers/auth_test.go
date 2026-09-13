@@ -31,6 +31,10 @@ func (s fakeAuthUserService) FindByID(context.Context, string) (models.User, err
 	return s.user, s.err
 }
 
+func (s fakeAuthUserService) UpdateProfile(context.Context, string, models.UpdateUserProfileRequest) (models.User, error) {
+	return s.user, s.err
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {

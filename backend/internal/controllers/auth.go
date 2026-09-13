@@ -41,6 +41,7 @@ type AuthController struct {
 type UserService interface {
 	FindOrCreateByOIDC(ctx context.Context, subject, email, displayName string) (models.User, error)
 	FindByID(ctx context.Context, id string) (models.User, error)
+	UpdateProfile(ctx context.Context, id string, request models.UpdateUserProfileRequest) (models.User, error)
 }
 
 func NewAuthController(config AuthConfig, users UserService) *AuthController {
@@ -150,6 +151,34 @@ func (c *AuthController) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := c.users.FindByID(r.Context(), userID)
+	if err != nil {
+		apperrors.ErrorHandler(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		apperrors.ErrorHandler(w, r, err)
+	}
+}
+
+func (c *AuthController) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
+	userID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+
+	var request models.UpdateUserProfileRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.ReqBodyDecodeFailed.Wrap(err, "request body must be valid JSON"))
+		return
+	}
+
+	user, err := c.users.UpdateProfile(r.Context(), userID, request)
 	if err != nil {
 		apperrors.ErrorHandler(w, r, err)
 		return

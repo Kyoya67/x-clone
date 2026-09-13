@@ -45,6 +45,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	protected := r.NewRoute().Subrouter()
 	protected.Use(authController.Middleware)
 	protected.HandleFunc("/auth/me", authController.Me).Methods(http.MethodGet)
+	protected.HandleFunc("/auth/me", authController.UpdateMe).Methods(http.MethodPatch)
 	protected.HandleFunc("/posts", postController.Create).Methods(http.MethodPost)
 	protected.HandleFunc("/timeline", timelineController.List).Methods(http.MethodGet)
 	protected.HandleFunc("/notifications", notificationController.List).Methods(http.MethodGet)

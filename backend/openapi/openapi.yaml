@@ -9,6 +9,7 @@ servers:
 
 tags:
   - name: Health
+  - name: Auth
   - name: Posts
   - name: Follows
   - name: Likes
@@ -90,6 +91,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FollowingResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Get the current user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Auth]
+      operationId: updateMe
+      summary: Update the current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -255,7 +294,7 @@ components:
 
     User:
       type: object
-      required: [id, handle, displayName, createdAt]
+      required: [id, handle, displayName, createdAt, needsProfileSetup]
       properties:
         id:
           type: string
@@ -273,6 +312,30 @@ components:
         createdAt:
           type: string
           format: date-time
+        needsProfileSetup:
+          type: boolean
+          description: Whether the user must complete profile setup
+
+    UpdateUserProfileRequest:
+      type: object
+      required: [handle, displayName]
+      properties:
+        handle:
+          type: string
+          pattern: '^[A-Za-z0-9_]{1,13}$'
+          minLength: 1
+          maxLength: 13
+          description: Unique username without the @ prefix
+          example: kyoya_dev
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: 京谷凌汰
+        bio:
+          type: string
+          maxLength: 160
+          example: GoとReactでX Cloneを作っています。
 
     Follow:
       type: object

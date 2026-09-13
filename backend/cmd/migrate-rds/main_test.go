@@ -98,7 +98,7 @@ func TestMigrationFilesHaveOrderedVersions(t *testing.T) {
 	if err != nil || version != 1 {
 		t.Fatalf("unexpected first version: %d, %v", version, err)
 	}
-	lastVersion := uint(6)
+	lastVersion := uint(7)
 	for expected := uint(1); expected <= lastVersion; expected++ {
 		if version != expected {
 			t.Fatalf("unexpected version: %d", version)

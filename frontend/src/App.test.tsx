@@ -10,9 +10,24 @@ function requestURL(input: RequestInfo | URL) {
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: RequestInfo | URL) => {
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestURL(input)
       if (url === '/auth/me') {
+        if ((input instanceof Request && input.method === 'PATCH') || init?.method === 'PATCH') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                id: '00000000-0000-0000-0000-000000000001',
+                handle: 'kyoya_dev',
+                displayName: 'dev kyoya',
+                bio: '',
+                createdAt: '2026-09-09T00:00:00Z',
+                needsProfileSetup: false,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
+          )
+        }
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -21,6 +36,7 @@ beforeEach(() => {
               displayName: '田中 太郎',
               bio: '',
               createdAt: '2026-09-09T00:00:00Z',
+              needsProfileSetup: false,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           ),
