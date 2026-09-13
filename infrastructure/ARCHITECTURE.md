@@ -71,6 +71,31 @@ ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplif
 | ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
 | EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
 
+### CD
+
+| Workflow | 起動条件 | 主な処理 |
+| -------- | -------- | -------- |
+| .github/workflows/frontend-cd.yml | develop・mainへのfrontendアプリ関連ファイル変更、手動実行 | frontendのformat:check・test・buildを実行し、distのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | develop・mainへのbackend/cmd/api、backend/cmd/migrate-rds、internal、migrationsなどの変更、手動実行 | backendのgofmt・test・vetを実行し、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+
+GitHub ActionsからAWSへの認証は、GitHub OIDCでAWS IAMロールを引き受ける。長期AWSアクセスキーはGitHub Secretsに保存しない。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。developはstg用、mainはprd用の値を参照する。
+
+| 種別 | 名前 | 用途 |
+| ---- | ---- | ---- |
+| Secret | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN |
+| Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
+| Variable | AWS_REGION | AWSリージョン |
+| Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD | 環境別Amplify AppのID |
+| Variable | AMPLIFY_BRANCH_NAME | Amplify Branch名 |
+| Variable | ECS_CLUSTER_NAME | ECSクラスター名 |
+| Variable | ECS_SERVICE_NAME | ECSサービス名 |
+| Variable | API_TASK_FAMILY | APIタスク定義family |
+| Variable | MIGRATION_TASK_FAMILY | マイグレーションタスク定義family |
+| Variable | API_ECR_REPOSITORY | API用ECRリポジトリ名 |
+| Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名 |
+| Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD | 環境別API health check URL |
+| Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD | サブネット・SG取得用の環境名 |
+
 ### DBユーザー・Secret・実行場所の関係
 
 | DBユーザー     | Secret            | 使う場所                                     | 用途                                                  |

@@ -57,3 +57,5 @@
 ## インフラ
 
 - TerraformモジュールはAWSサービス単位で分ける。例: ALB、ACM、Route 53、Amplifyを同一モジュールに混在させない
+- GitHub ActionsのCD workflowは、stg/prdなど環境ごとの差分をブランチと環境別Secrets・Variablesで切り替えられる形にする
+- CD workflowでは、環境依存値をworkflow内のデフォルト値に埋め込まず、GitHub Secrets・VariablesまたはTerraform管理の値として明示する
