@@ -35,6 +35,11 @@
 - PRの後続対応には、このPRで完了していない範囲や次に対応する課題を書く
 - PRの対応内容・検証内容・後続対応は、関連Issueの目的・完了条件・次に残る課題と対応させる
 - 未実装の内容を、対応内容や検証内容に完了済みとして書かない
+- developからmainへマージするPRは、Milestone単位のリリースPRとして書く
+- develop→main PRの本文は「概要」「対応Pull Request」「変更内容」「検証内容」の順で書く
+- develop→main PRの「対応Pull Request」には、そのMilestoneでdevelopへマージ済みの主要PRをIssue/機能単位で並べる
+- develop→main PRの「変更内容」は、個別commitではなくMilestone全体で実現したユーザー価値・アーキテクチャ変更・運用変更をまとめる
+- develop→main PRの「検証内容」には、CI結果、環境疎通、実際に確認したstg/prd動作だけを書く
 
 ## バックエンド
 
