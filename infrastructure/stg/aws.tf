@@ -167,7 +167,7 @@ module "ecs_task_definition" {
 
   backend = {
     family              = "api"
-    image               = "${module.ecr.api_repository_url}:8d18a7"
+    image               = "${module.ecr.api_repository_url}:f0b067"
     execution_role_arn  = module.iam.api_execution_role_arn
     task_role_arn       = module.iam.api_task_role_arn
     database_host       = module.rds.address
