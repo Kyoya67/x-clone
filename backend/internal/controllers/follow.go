@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/auth"
 	"github.com/gorilla/mux"
 )
 
@@ -41,7 +42,12 @@ func (c *FollowController) Unfollow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *FollowController) ListFollowing(w http.ResponseWriter, r *http.Request) {
-	followeeIDs, err := c.service.ListFolloweeIDs(r.Context(), fixedAuthorID)
+	followerID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+	followeeIDs, err := c.service.ListFolloweeIDs(r.Context(), followerID)
 	if err != nil {
 		apperrors.ErrorHandler(w, r, err)
 		return
@@ -61,7 +67,13 @@ func (c *FollowController) handleFollowAction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := action(r.Context(), fixedAuthorID, followeeID); err != nil {
+	followerID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+
+	if err := action(r.Context(), followerID, followeeID); err != nil {
 		apperrors.ErrorHandler(w, r, err)
 		return
 	}

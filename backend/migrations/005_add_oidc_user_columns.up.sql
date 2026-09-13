@@ -1,0 +1,4 @@
+ALTER TABLE public.users
+    ADD COLUMN IF NOT EXISTS oidc_subject TEXT UNIQUE,
+    ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+

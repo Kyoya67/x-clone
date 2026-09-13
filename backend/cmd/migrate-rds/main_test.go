@@ -88,7 +88,7 @@ func TestApplyHidesDriverDetails(t *testing.T) {
 	}
 }
 
-func TestMigrationFilesHaveFourOrderedVersions(t *testing.T) {
+func TestMigrationFilesHaveFiveOrderedVersions(t *testing.T) {
 	source, err := iofs.New(os.DirFS("../../migrations"), ".")
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestMigrationFilesHaveFourOrderedVersions(t *testing.T) {
 		t.Fatalf("unexpected first version: %d, %v", version, err)
 	}
 	// Verify SQL loading through the same source used by the RDS command.
-	for expected := uint(1); expected <= 4; expected++ {
+	for expected := uint(1); expected <= 5; expected++ {
 		if version != expected {
 			t.Fatalf("unexpected version: %d", version)
 		}
@@ -109,10 +109,10 @@ func TestMigrationFilesHaveFourOrderedVersions(t *testing.T) {
 		}
 		reader.Close()
 		version, err = source.Next(version)
-		if expected < 4 && err != nil {
+		if expected < 5 && err != nil {
 			t.Fatal(err)
 		}
-		if expected == 4 && !errors.Is(err, os.ErrNotExist) {
+		if expected == 5 && !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("unexpected extra migration: %v", err)
 		}
 	}

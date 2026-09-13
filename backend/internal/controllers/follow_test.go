@@ -49,14 +49,14 @@ func TestFollowControllerFollow(t *testing.T) {
 	service := &fakeFollowService{}
 	controller := NewFollowController(service)
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Follow(recorder, request)
 
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
 	}
-	if !service.followCalled || service.followerID != fixedAuthorID || service.followeeID != followeeID {
+	if !service.followCalled || service.followerID != testUserID || service.followeeID != followeeID {
 		t.Fatalf("unexpected service call: %+v", service)
 	}
 }
@@ -65,14 +65,14 @@ func TestFollowControllerUnfollow(t *testing.T) {
 	service := &fakeFollowService{}
 	controller := NewFollowController(service)
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Unfollow(recorder, request)
 
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
 	}
-	if !service.unfollowCalled || service.followerID != fixedAuthorID || service.followeeID != followeeID {
+	if !service.unfollowCalled || service.followerID != testUserID || service.followeeID != followeeID {
 		t.Fatalf("unexpected service call: %+v", service)
 	}
 }
@@ -81,14 +81,14 @@ func TestFollowControllerListFollowing(t *testing.T) {
 	service := &fakeFollowService{followeeIDs: []string{followeeID}}
 	controller := NewFollowController(service)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/me/following", nil))
 
 	controller.ListFollowing(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if !service.listCalled || service.followerID != fixedAuthorID {
+	if !service.listCalled || service.followerID != testUserID {
 		t.Fatalf("unexpected service call: %+v", service)
 	}
 	var response struct {
@@ -105,7 +105,7 @@ func TestFollowControllerListFollowing(t *testing.T) {
 func TestFollowControllerListFollowingReturnsServiceError(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/me/following", nil))
 
 	controller.ListFollowing(recorder, request)
 
@@ -120,7 +120,7 @@ func TestFollowControllerListFollowingReturnsServiceError(t *testing.T) {
 func TestFollowControllerListFollowingHandlesEncodeError(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{})
 	recorder := &failingResponseWriter{header: http.Header{}}
-	request := httptest.NewRequest(http.MethodGet, "/me/following", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/me/following", nil))
 
 	controller.ListFollowing(recorder, request)
 
@@ -132,7 +132,7 @@ func TestFollowControllerListFollowingHandlesEncodeError(t *testing.T) {
 func TestFollowControllerRejectsInvalidUserID(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodPut, "/users/not-a-uuid/follow", nil), "not-a-uuid")
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodPut, "/users/not-a-uuid/follow", nil), "not-a-uuid"))
 
 	controller.Follow(recorder, request)
 
@@ -147,7 +147,7 @@ func TestFollowControllerRejectsInvalidUserID(t *testing.T) {
 func TestFollowControllerUnfollowRejectsInvalidUserID(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodDelete, "/users/not-a-uuid/follow", nil), "not-a-uuid")
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodDelete, "/users/not-a-uuid/follow", nil), "not-a-uuid"))
 
 	controller.Unfollow(recorder, request)
 
@@ -162,7 +162,7 @@ func TestFollowControllerUnfollowRejectsInvalidUserID(t *testing.T) {
 func TestFollowControllerReturnsServiceError(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Follow(recorder, request)
 
@@ -177,7 +177,7 @@ func TestFollowControllerReturnsServiceError(t *testing.T) {
 func TestFollowControllerUnfollowReturnsServiceError(t *testing.T) {
 	controller := NewFollowController(&fakeFollowService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Unfollow(recorder, request)
 
@@ -194,7 +194,7 @@ func TestFollowControllerFollowReturnsValidationError(t *testing.T) {
 		err: apperrors.BadParam.Wrap(nil, "cannot follow yourself"),
 	})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodPut, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Follow(recorder, request)
 
@@ -211,7 +211,7 @@ func TestFollowControllerUnfollowReturnsValidationError(t *testing.T) {
 		err: apperrors.BadParam.Wrap(nil, "cannot follow yourself"),
 	})
 	recorder := httptest.NewRecorder()
-	request := withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID)
+	request := authenticatedRequest(withUserID(httptest.NewRequest(http.MethodDelete, "/users/"+followeeID+"/follow", nil), followeeID))
 
 	controller.Unfollow(recorder, request)
 

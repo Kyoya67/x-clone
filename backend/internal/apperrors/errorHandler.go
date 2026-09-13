@@ -27,6 +27,8 @@ func statusCodeFor(code ErrCode) int {
 		return http.StatusBadRequest
 	case NotFound:
 		return http.StatusNotFound
+	case Unauthorized:
+		return http.StatusUnauthorized
 	case DependencyUnavailable:
 		return http.StatusServiceUnavailable
 	default:

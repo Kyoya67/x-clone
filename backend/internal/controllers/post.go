@@ -7,10 +7,9 @@ import (
 	"strings"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/auth"
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/models"
 )
-
-const fixedAuthorID = "00000000-0000-0000-0000-000000000001"
 
 type PostController struct {
 	service PostService
@@ -39,7 +38,13 @@ func (c *PostController) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	post, err := c.service.Create(r.Context(), fixedAuthorID, request)
+	authorID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+
+	post, err := c.service.Create(r.Context(), authorID, request)
 	if err != nil {
 		apperrors.ErrorHandler(w, r, err)
 		return
