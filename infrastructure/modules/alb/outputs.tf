@@ -1,5 +1,8 @@
 output "target_group_arn" {
   value = aws_lb_target_group.api.arn
+
+  # ECSサービスの更新前に、ターゲットグループをALBへ関連付ける。
+  depends_on = [aws_lb_listener.https]
 }
 
 output "load_balancer_arn" {

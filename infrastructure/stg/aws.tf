@@ -64,6 +64,8 @@ module "alb" {
   vpc_id            = module.vpc.id
   public_subnet_ids = module.subnet.public_ids
   security_group_id = module.security_group.api_alb_id
+  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
+  certificate_arn   = module.api_certificate.validated_certificate_arn
   tags              = local.common_tags
 
   depends_on = [module.route_table]
@@ -72,24 +74,9 @@ module "alb" {
 module "api_certificate" {
   source = "../modules/acm_certificate"
 
-  domain_name = "api-v1.stg.x-clone.kyo8.dev"
-  tags        = local.common_tags
-}
-
-module "api_certificate_validation" {
-  source = "../modules/acm_certificate_validation"
-
-  certificate_arn         = module.api_certificate.arn
+  domain_name             = "api-v1.stg.x-clone.kyo8.dev"
   validation_record_fqdns = module.route53.api_certificate_validation_record_fqdns
-}
-
-module "alb_listener" {
-  source = "../modules/alb_listener"
-
-  load_balancer_arn = module.alb.load_balancer_arn
-  target_group_arn  = module.alb.target_group_arn
-  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
-  certificate_arn   = module.api_certificate_validation.certificate_arn
+  tags                    = local.common_tags
 }
 
 module "secrets_manager" {
@@ -191,7 +178,7 @@ module "ecs_service" {
   security_group_id   = module.security_group.api_id
   tags                = local.common_tags
 
-  depends_on = [module.iam, module.route_table, module.security_group, module.alb_listener]
+  depends_on = [module.iam, module.route_table, module.security_group]
 }
 
 module "rds" {

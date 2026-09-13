@@ -5,3 +5,8 @@ variable "domain_name" {
 variable "tags" {
   type = map(string)
 }
+
+variable "validation_record_fqdns" {
+  type    = list(string)
+  default = []
+}
