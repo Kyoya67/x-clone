@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -48,6 +49,8 @@ func NewAuthController(config AuthConfig, users UserService) *AuthController {
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
 	state, err := auth.NewRandomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
@@ -82,16 +85,25 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
 	state := r.URL.Query().Get("state")
 	code := r.URL.Query().Get("code")
-	if state == "" || code == "" || cookieValue(r, auth.StateCookieName) != state {
-		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(nil, "invalid authentication callback"))
+	stateCookie := cookieValue(r, auth.StateCookieName)
+	if state == "" || code == "" || stateCookie != state {
+		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
+			fmt.Errorf("callback validation failed: state=%t code=%t state_cookie=%t state_match=%t", state != "", code != "", stateCookie != "", stateCookie == state),
+			"invalid authentication callback",
+		))
 		return
 	}
 	nonce := cookieValue(r, auth.NonceCookieName)
 	verifier := cookieValue(r, auth.PKCECookieName)
 	if nonce == "" || verifier == "" {
-		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(nil, "invalid authentication callback"))
+		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
+			fmt.Errorf("callback temporary cookie missing: nonce=%t verifier=%t", nonce != "", verifier != ""),
+			"invalid authentication callback",
+		))
 		return
 	}
 
@@ -123,6 +135,8 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Me(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
 	userID, err := auth.UserID(r.Context())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
@@ -140,6 +154,7 @@ func (c *AuthController) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
 	auth.ClearSessionCookie(w, c.config.Cookie)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -195,4 +210,9 @@ func cookieValue(r *http.Request, name string) string {
 		return ""
 	}
 	return cookie.Value
+}
+
+func setAuthNoStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 }
