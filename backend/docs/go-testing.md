@@ -196,7 +196,7 @@ go tool cover -func=/tmp/apperrors-cover.out
 
 ## cmd/db-user
 
-DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロール作成、app_user・migration_userの権限付与、既存テーブルの所有権移譲を検証する。
+DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロール作成、app_user・migration_userの権限付与を検証する。
 
 `main`関数では、次の観点をテストしている。
 
@@ -240,11 +240,10 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 
 `configureAppRole`関数では、次の観点をテストしている。
 
-- app_userを作成し、DB接続・schema利用・既存アプリテーブルへの読み書き権限を付与する
+- app_userを作成し、DB接続・schema利用の基本権限を付与する
 - app_userが存在するがSecretがない場合は拒否する
-- マイグレーション前でテーブルが存在しない場合はテーブル権限付与をスキップする
 - DBエラーの詳細をそのまま外へ出さない
-- DB接続・schema利用・テーブル権限付与の各失敗を区別する
+- DB接続・schema利用の各失敗を区別する
 
 `configureMigrationRole`関数では、次の観点をテストしている。
 
@@ -253,13 +252,7 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 - migration_userが存在するがSecretがない場合は拒否する
 - migration_user用Secretで既存パスワードを再利用する
 - DBエラーの詳細をそのまま外へ出さない
-- DB接続・schema利用・管理者membership・拡張準備の各失敗を区別する
-
-`transferMigrationTables`関数では、次の観点をテストしている。
-
-- アプリテーブルとschema_migrationsの所有者をmigration_userへ変更する
-- 存在しないテーブルは所有者変更をスキップする
-- DBエラーの詳細をそのまま外へ出さない
+- DB接続・schema利用・管理者membership・migrationスキーマ・default privileges・拡張準備の各失敗を区別する
 
 ### カバレッジ結果
 
@@ -273,8 +266,7 @@ DBユーザー管理コマンドでは、Secrets Managerの認証情報、DBロ�
 |          | createRole              |     100.0% |
 |          | configureAppRole        |     100.0% |
 |          | configureMigrationRole  |     100.0% |
-|          | transferMigrationTables |     100.0% |
-| 合計     | -                       |      98.4% |
+| 合計     | -                       |      98.3% |
 
 計測コマンド：
 

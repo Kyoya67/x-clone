@@ -25,7 +25,7 @@ api-ecr-push:
 migration-ecr-push:
 	$(MAKE) _ecr-push ECR_REPOSITORY=db-migrator DOCKER_TARGET=migration
 
-# 上記2コマンドから呼ぶ共通処理。リポジトリとビルド対象は呼び出し元で指定する。
+# 上記のapi-ecr-push, migration-ecr-pushコマンドから呼ぶ共通処理。リポジトリとビルド対象は呼び出し元で指定する。
 # ログイン・ビルド・pushを順に実行し、途中で失敗したら停止する。
 _ecr-push: SHELL := /bin/bash
 _ecr-push:

@@ -175,7 +175,7 @@ func createRole(ctx context.Context, tx *sql.Tx, role, password string, hasSecre
 		return errors.New("database role exists without a saved secret; refusing to change its password")
 	}
 	if !exists {
-		// 最小権限でDBロールを作成する
+		// 最小権限でDBロールを作成し、細かい権限設定はそれぞれconfigureAppRoleやconfigureMigrationRoleで行う。
 		literal := strings.ReplaceAll(strings.ReplaceAll(password, "\\", "\\\\"), "'", "''")
 		if _, err := tx.ExecContext(ctx, "CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD E'"+literal+"'"); err != nil {
 			return errors.New("cannot create database role")
@@ -194,19 +194,6 @@ func configureAppRole(ctx context.Context, tx *sql.Tx, password string, hasSecre
 	if _, err := tx.ExecContext(ctx, "GRANT USAGE ON SCHEMA public TO app_user"); err != nil {
 		return errors.New("cannot grant schema access")
 	}
-	// 今存在するテーブルに対してのみ権限を付与する
-	for _, table := range []string{"users", "posts", "follows"} {
-		var present bool
-		if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&present); err != nil {
-			return errors.New("cannot inspect application tables")
-		}
-		if !present {
-			continue
-		}
-		if _, err := tx.ExecContext(ctx, "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."+table+" TO app_user"); err != nil {
-			return errors.New("cannot grant table privileges")
-		}
-	}
 	return nil
 }
 
@@ -223,24 +210,17 @@ func configureMigrationRole(ctx context.Context, tx *sql.Tx, password string, ha
 	if _, err := tx.ExecContext(ctx, "GRANT migration_user TO dbadmin WITH INHERIT TRUE, SET TRUE"); err != nil {
 		return errors.New("cannot grant administrator membership in migration role")
 	}
+	if _, err := tx.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS migration AUTHORIZATION migration_user"); err != nil {
+		return errors.New("cannot prepare migration schema")
+	}
+	if _, err := tx.ExecContext(ctx, "GRANT USAGE, CREATE ON SCHEMA migration TO migration_user"); err != nil {
+		return errors.New("cannot grant migration metadata schema access")
+	}
+	if _, err := tx.ExecContext(ctx, "ALTER DEFAULT PRIVILEGES FOR ROLE migration_user IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user"); err != nil {
+		return errors.New("cannot configure application default table privileges")
+	}
 	if _, err := tx.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pgcrypto"); err != nil {
 		return errors.New("cannot prepare migration extension")
-	}
-	return transferMigrationTables(ctx, tx)
-}
-
-func transferMigrationTables(ctx context.Context, tx *sql.Tx) error {
-	for _, table := range []string{"users", "posts", "follows", "schema_migrations"} {
-		var present bool
-		if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&present); err != nil {
-			return errors.New("cannot inspect migration tables")
-		}
-		if !present {
-			continue
-		}
-		if _, err := tx.ExecContext(ctx, "ALTER TABLE public."+table+" OWNER TO migration_user"); err != nil {
-			return errors.New("cannot transfer migration table ownership")
-		}
 	}
 	return nil
 }

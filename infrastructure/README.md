@@ -46,7 +46,8 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 - CI/CDがタスクを起動する権限はIAM、タスク内からDBを変更する権限はmigration_userが担う。
 - appデータベースに接続する（CONNECT）。
 - publicスキーマを利用し、テーブルを作成する（USAGE・CREATE）。
-- users・posts・follows・schema_migrationsの所有者として、テーブルの構造変更・削除を行う。
+- migration_userで実行するマイグレーションにより、public配下のアプリテーブルを作成・変更する。
+- マイグレーション管理用のschema_migrationsはmigrationスキーマで管理する。
 
 ### app_user：API用
 

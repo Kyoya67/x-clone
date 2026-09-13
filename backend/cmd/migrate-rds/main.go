@@ -28,13 +28,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err := run(*ca, *path, *action); err != nil {
-		// Raw SQL/driver/AWS errors may contain credentials or data.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-// ECS injects username/password from the JSON secret. No AWS CLI/SDK or SSM is used here.
 func databaseURL(ca string) (string, error) {
 	host, user, password := os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")
 	port, err := strconv.Atoi(os.Getenv("DB_PORT"))
@@ -45,7 +43,7 @@ func databaseURL(ca string) (string, error) {
 }
 
 func run(ca, path, action string) error {
-	// Validate migration files before connecting to AWS or modifying the DB.
+	// AWS への接続やデータベースの変更を行う前に、マイグレーション検証ファイルを検証する。
 	source, err := iofs.New(os.DirFS(path), ".")
 	if err != nil {
 		return errors.New("cannot read migration files")
@@ -68,7 +66,7 @@ func run(ca, path, action string) error {
 	fmt.Printf("Target: %s, database=app, user=migration_user\n", os.Getenv("DB_HOST"))
 	if action == "status" {
 		var exists bool
-		if err := db.QueryRowContext(ctx, "SELECT to_regclass('public.schema_migrations') IS NOT NULL").Scan(&exists); err != nil {
+		if err := db.QueryRowContext(ctx, "SELECT to_regclass('migration.schema_migrations') IS NOT NULL").Scan(&exists); err != nil {
 			return errors.New("cannot inspect migration status")
 		}
 		if !exists {
@@ -77,7 +75,7 @@ func run(ca, path, action string) error {
 		}
 		var version int64
 		var dirty bool
-		if err := db.QueryRowContext(ctx, "SELECT version, dirty FROM public.schema_migrations").Scan(&version, &dirty); err != nil {
+		if err := db.QueryRowContext(ctx, "SELECT version, dirty FROM migration.schema_migrations").Scan(&version, &dirty); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				fmt.Println("No migrations applied (schema_migrations is empty)")
 				return nil
@@ -91,9 +89,9 @@ func run(ca, path, action string) error {
 }
 
 func migrateUp(db *sql.DB, source migrationsource.Driver) error {
-	// Reuse the same schema_migrations table and locking as the local migrate CLI.
+	// schema_migrationsはアプリ用のpublicではなく、migrationスキーマで管理する。
 	driver, err := postgres.WithInstance(db, &postgres.Config{
-		DatabaseName: "app", SchemaName: "public", StatementTimeout: 60 * time.Second,
+		DatabaseName: "app", SchemaName: "migration", StatementTimeout: 60 * time.Second,
 	})
 	if err != nil {
 		return errors.New("cannot initialize migration driver")

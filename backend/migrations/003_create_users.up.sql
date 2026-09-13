@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY,
     handle VARCHAR(50) NOT NULL UNIQUE,
     display_name VARCHAR(100) NOT NULL,

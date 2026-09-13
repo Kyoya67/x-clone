@@ -220,9 +220,6 @@ func TestRunConfiguresApplicationAndMigrationUsers(t *testing.T) {
 	mock.ExpectExec("CREATE ROLE app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE ON SCHEMA public TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
@@ -230,7 +227,7 @@ func TestRunConfiguresApplicationAndMigrationUsers(t *testing.T) {
 	mock.ExpectExec("CREATE ROLE migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA public TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	expectMigrationOwnershipSetup(mock)
+	expectMigrationRolePrivileges(mock)
 	mock.ExpectCommit()
 
 	if err := run(context.Background(), "app-db", "db/app_user", "db/migration_user", "/tmp/ca.pem", "", "db/dbadmin"); err != nil {
@@ -300,9 +297,6 @@ func TestRunReturnsCommitError(t *testing.T) {
 	mock.ExpectExec("CREATE ROLE app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE ON SCHEMA public TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
@@ -310,7 +304,7 @@ func TestRunReturnsCommitError(t *testing.T) {
 	mock.ExpectExec("CREATE ROLE migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA public TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	expectMigrationOwnershipSetup(mock)
+	expectMigrationRolePrivileges(mock)
 	mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
 
 	err := run(context.Background(), "app-db", "db/app_user", "db/migration_user", "/tmp/ca.pem", "", "db/dbadmin")
@@ -378,9 +372,6 @@ func TestRunReturnsMigrationSetupError(t *testing.T) {
 	mock.ExpectExec("CREATE ROLE app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE ON SCHEMA public TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	mock.ExpectRollback()
 
 	err := run(context.Background(), "app-db", "db/app_user", "db/migration_user", "/tmp/ca.pem", "", "db/dbadmin")
@@ -392,18 +383,12 @@ func TestRunReturnsMigrationSetupError(t *testing.T) {
 	}
 }
 
-func TestConfigureAppRoleCreatesUserAndGrantsOnlyApplicationTables(t *testing.T) {
+func TestConfigureAppRoleCreatesUserAndGrantsBasicPrivileges(t *testing.T) {
 	tx, mock := newTransaction(t)
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectExec("CREATE ROLE app_user LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE ON SCHEMA public TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.posts TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.follows TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	if err := configureAppRole(context.Background(), tx, "test-only-password", false); err != nil {
 		t.Fatal(err)
 	}
@@ -428,9 +413,6 @@ func TestConfigureAppRoleReusesUserBeforeMigrations(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.follows").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
 	if err := configureAppRole(context.Background(), tx, "unchanged", true); err != nil {
 		t.Fatal(err)
 	}
@@ -481,39 +463,6 @@ func TestConfigureAppRoleRejectsSchemaGrantError(t *testing.T) {
 	}
 }
 
-func TestConfigureAppRoleRejectsTableInspectionError(t *testing.T) {
-	tx, mock := newTransaction(t)
-	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec("GRANT USAGE").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnError(errors.New("inspect failed"))
-
-	err := configureAppRole(context.Background(), tx, "test-only-password", true)
-	if err == nil || err.Error() != "cannot inspect application tables" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestConfigureAppRoleRejectsTableGrantError(t *testing.T) {
-	tx, mock := newTransaction(t)
-	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec("GRANT USAGE").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("GRANT SELECT").WillReturnError(errors.New("grant failed"))
-
-	err := configureAppRole(context.Background(), tx, "test-only-password", true)
-	if err == nil || err.Error() != "cannot grant table privileges" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestDatabaseUserPasswordReadsJSONCredentials(t *testing.T) {
 	password, err := databaseUserPassword(`{"username":"migration_user","password":"test-only!#$"}`, "migration_user")
 	if err != nil || password != "test-only!#$" {
@@ -542,7 +491,7 @@ func TestConfigureMigrationRoleCreatesUserBeforeMigrations(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA public TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	expectMigrationOwnershipSetup(mock)
+	expectMigrationRolePrivileges(mock)
 
 	if err := configureMigrationRole(context.Background(), tx, "test-password", false); err != nil {
 		t.Fatal(err)
@@ -558,7 +507,7 @@ func TestConfigureMigrationRolePreservesExistingUser(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectExec("GRANT CONNECT ON DATABASE app TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA public TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
-	expectMigrationOwnershipSetup(mock)
+	expectMigrationRolePrivileges(mock)
 
 	if err := configureMigrationRole(context.Background(), tx, "saved-password", true); err != nil {
 		t.Fatal(err)
@@ -665,6 +614,9 @@ func TestConfigureMigrationRoleRejectsExtensionError(t *testing.T) {
 	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT USAGE, CREATE").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("GRANT migration_user TO dbadmin").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE SCHEMA IF NOT EXISTS migration").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA migration").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("ALTER DEFAULT PRIVILEGES").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("CREATE EXTENSION").WillReturnError(errors.New("extension failed"))
 
 	err := configureMigrationRole(context.Background(), tx, "saved-password", true)
@@ -683,74 +635,64 @@ func TestRunRejectsSharedSecretBeforeConnecting(t *testing.T) {
 	}
 }
 
-func expectMigrationOwnershipSetup(mock sqlmock.Sqlmock) {
+func expectMigrationRolePrivileges(mock sqlmock.Sqlmock) {
 	mock.ExpectExec("GRANT migration_user TO dbadmin WITH INHERIT TRUE, SET TRUE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE SCHEMA IF NOT EXISTS migration AUTHORIZATION migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA migration TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("ALTER DEFAULT PRIVILEGES FOR ROLE migration_user IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec("CREATE EXTENSION IF NOT EXISTS pgcrypto").WillReturnResult(sqlmock.NewResult(0, 0))
-	expectMissingTable(mock, "users")
-	expectMissingTable(mock, "posts")
-	expectMissingTable(mock, "follows")
-	expectMissingTable(mock, "schema_migrations")
 }
 
-func expectMissingTable(mock sqlmock.Sqlmock, table string) {
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public." + table).
-		WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(false))
-}
-
-func expectTableOwnership(mock sqlmock.Sqlmock, table string) {
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public." + table).
-		WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("ALTER TABLE public." + table + " OWNER TO migration_user").WillReturnResult(sqlmock.NewResult(0, 0))
-}
-
-func TestTransferMigrationTablesIncludesApplicationAndVersionTables(t *testing.T) {
+func TestConfigureMigrationRoleRejectsMigrationSchemaError(t *testing.T) {
 	tx, mock := newTransaction(t)
-	expectTableOwnership(mock, "users")
-	expectTableOwnership(mock, "posts")
-	expectTableOwnership(mock, "follows")
-	expectTableOwnership(mock, "schema_migrations")
-	if err := transferMigrationTables(context.Background(), tx); err != nil {
-		t.Fatal(err)
+	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT migration_user TO dbadmin").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE SCHEMA").WillReturnError(errors.New("schema failed"))
+
+	err := configureMigrationRole(context.Background(), tx, "saved-password", true)
+	if err == nil || err.Error() != "cannot prepare migration schema" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestTransferMigrationTablesSkipsAbsentTables(t *testing.T) {
+func TestConfigureMigrationRoleRejectsMigrationMetadataGrantError(t *testing.T) {
 	tx, mock := newTransaction(t)
-	expectMissingTable(mock, "users")
-	expectMissingTable(mock, "posts")
-	expectMissingTable(mock, "follows")
-	expectMissingTable(mock, "schema_migrations")
-	if err := transferMigrationTables(context.Background(), tx); err != nil {
-		t.Fatal(err)
+	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT migration_user TO dbadmin").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE SCHEMA").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA migration").WillReturnError(errors.New("grant failed"))
+
+	err := configureMigrationRole(context.Background(), tx, "saved-password", true)
+	if err == nil || err.Error() != "cannot grant migration metadata schema access" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestTransferMigrationTablesHidesDatabaseErrors(t *testing.T) {
+func TestConfigureMigrationRoleRejectsDefaultPrivilegeError(t *testing.T) {
 	tx, mock := newTransaction(t)
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.users").WillReturnRows(sqlmock.NewRows([]string{"present"}).AddRow(true))
-	mock.ExpectExec("ALTER TABLE").WillReturnError(errors.New("private database details"))
-	err := transferMigrationTables(context.Background(), tx)
-	if err == nil || strings.Contains(err.Error(), "private database details") {
-		t.Fatal("expected sanitized error")
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
+	mock.ExpectQuery("SELECT EXISTS").WithArgs("migration_user").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("GRANT CONNECT").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT migration_user TO dbadmin").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE SCHEMA").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("GRANT USAGE, CREATE ON SCHEMA migration").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("ALTER DEFAULT PRIVILEGES").WillReturnError(errors.New("default privilege failed"))
 
-func TestTransferMigrationTablesReturnsLaterInspectionError(t *testing.T) {
-	tx, mock := newTransaction(t)
-	expectMissingTable(mock, "users")
-	mock.ExpectQuery("SELECT to_regclass").WithArgs("public.posts").WillReturnError(errors.New("private database details"))
-
-	err := transferMigrationTables(context.Background(), tx)
-	if err == nil || err.Error() != "cannot inspect migration tables" || strings.Contains(err.Error(), "private database details") {
+	err := configureMigrationRole(context.Background(), tx, "saved-password", true)
+	if err == nil || err.Error() != "cannot configure application default table privileges" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
