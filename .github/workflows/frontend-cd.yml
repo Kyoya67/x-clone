@@ -68,7 +68,7 @@ jobs:
           test -n "$AMPLIFY_BRANCH_NAME" || { echo 'AMPLIFY_BRANCH_NAME repository variable is required'; exit 1; }
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
