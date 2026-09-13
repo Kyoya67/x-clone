@@ -31,11 +31,21 @@ resource "aws_ecs_task_definition" "api" {
     environment = [
       { name = "PORT", value = "8080" },
       { name = "DB_HOST", value = var.backend.database_host },
-      { name = "DB_PORT", value = "5432" }
+      { name = "DB_PORT", value = "5432" },
+      { name = "AUTH_ISSUER", value = var.backend.auth.issuer },
+      { name = "AUTH_AUTHORIZE_URL", value = var.backend.auth.authorize_url },
+      { name = "AUTH_TOKEN_URL", value = var.backend.auth.token_url },
+      { name = "AUTH_CLIENT_ID", value = var.backend.auth.client_id },
+      { name = "AUTH_REDIRECT_URL", value = var.backend.auth.redirect_url },
+      { name = "AUTH_POST_LOGIN_URL", value = var.backend.auth.post_login_url },
+      { name = "AUTH_COOKIE_DOMAIN", value = var.backend.auth.cookie_domain },
+      { name = "AUTH_COOKIE_SECURE", value = var.backend.auth.cookie_secure }
     ]
     secrets = [
       { name = "DB_USER", valueFrom = "${var.backend.database_secret_arn}:username::" },
-      { name = "DB_PASSWORD", valueFrom = "${var.backend.database_secret_arn}:password::" }
+      { name = "DB_PASSWORD", valueFrom = "${var.backend.database_secret_arn}:password::" },
+      { name = "AUTH_CLIENT_SECRET", valueFrom = "${var.backend.auth_secret_arn}:client_secret::" },
+      { name = "AUTH_SESSION_SECRET", valueFrom = "${var.backend.auth_secret_arn}:session_secret::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"

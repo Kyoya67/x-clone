@@ -94,7 +94,25 @@ module "secrets_manager" {
   migration_user = {
     name = "db/migration_user"
   }
-  tags = local.common_tags
+  auth = {
+    name = "auth/session"
+  }
+  auth_client_secret  = module.cognito.client_secret
+  auth_session_secret = var.auth_session_secret
+  auth_secret_version = var.auth_secret_version
+  tags                = local.common_tags
+}
+
+module "cognito" {
+  source = "../modules/cognito"
+
+  name                 = "x-clone-prd"
+  domain_prefix        = "x-clone-prd"
+  callback_urls        = ["https://x-clone.kyo8.dev/auth/callback"]
+  logout_urls          = ["https://x-clone.kyo8.dev/"]
+  google_client_id     = var.google_client_id
+  google_client_secret = var.google_client_secret
+  tags                 = local.common_tags
 }
 
 module "iam" {
@@ -103,6 +121,7 @@ module "iam" {
   repository_arn           = module.ecr.api_arn
   log_group_arn            = module.cloudwatch_logs.arn
   database_secret_arn      = module.secrets_manager.app_user_secret_arn
+  auth_secret_arn          = module.secrets_manager.auth_secret_arn
   migration_repository_arn = module.ecr.db_migrator_arn
   migration_log_group_arn  = module.migration_logs.arn
   migration_secret_arn     = module.secrets_manager.migration_user_secret_arn
@@ -154,7 +173,18 @@ module "ecs_task_definition" {
     task_role_arn       = module.iam.api_task_role_arn
     database_host       = module.rds.address
     database_secret_arn = module.secrets_manager.app_user_secret_arn
-    log_group_name      = module.cloudwatch_logs.name
+    auth_secret_arn     = module.secrets_manager.auth_secret_arn
+    auth = {
+      issuer         = module.cognito.issuer
+      authorize_url  = module.cognito.authorize_url
+      token_url      = module.cognito.token_url
+      client_id      = module.cognito.client_id
+      redirect_url   = "https://x-clone.kyo8.dev/auth/callback"
+      post_login_url = "https://x-clone.kyo8.dev/"
+      cookie_domain  = "x-clone.kyo8.dev"
+      cookie_secure  = "true"
+    }
+    log_group_name = module.cloudwatch_logs.name
   }
 
   migration = {

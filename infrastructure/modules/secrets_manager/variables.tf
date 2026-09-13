@@ -27,6 +27,30 @@ variable "migration_user" {
   })
 }
 
+variable "auth" {
+  type = object({
+    name = string
+  })
+}
+
+variable "auth_client_secret" {
+  type      = string
+  sensitive = true
+  ephemeral = true
+  nullable  = false
+}
+
+variable "auth_session_secret" {
+  type      = string
+  sensitive = true
+  ephemeral = true
+  nullable  = false
+}
+
+variable "auth_secret_version" {
+  type = number
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
