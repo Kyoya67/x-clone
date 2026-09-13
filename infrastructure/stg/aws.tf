@@ -37,8 +37,16 @@ module "route_table" {
 module "route53" {
   source = "../modules/route53"
 
-  name = "stg.x-clone.kyo8.dev"
-  tags = local.common_tags
+  name                                      = "stg.x-clone.kyo8.dev"
+  api_certificate_domain_validation_options = module.api_certificate.domain_validation_options
+  api_alias_record = {
+    name     = "api-v1.stg.x-clone.kyo8.dev"
+    dns_name = module.alb.dns_name
+    zone_id  = module.alb.zone_id
+  }
+  amplify_certificate_dns_record = module.amplify.certificate_dns_record
+  amplify_domain_dns_record      = module.amplify.domain_dns_record
+  tags                           = local.common_tags
 }
 
 module "security_group" {
@@ -56,11 +64,32 @@ module "alb" {
   vpc_id            = module.vpc.id
   public_subnet_ids = module.subnet.public_ids
   security_group_id = module.security_group.api_alb_id
-  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
-  hosted_zone_id    = module.route53.zone_id
   tags              = local.common_tags
 
   depends_on = [module.route_table]
+}
+
+module "api_certificate" {
+  source = "../modules/acm_certificate"
+
+  domain_name = "api-v1.stg.x-clone.kyo8.dev"
+  tags        = local.common_tags
+}
+
+module "api_certificate_validation" {
+  source = "../modules/acm_certificate_validation"
+
+  certificate_arn         = module.api_certificate.arn
+  validation_record_fqdns = module.route53.api_certificate_validation_record_fqdns
+}
+
+module "alb_listener" {
+  source = "../modules/alb_listener"
+
+  load_balancer_arn = module.alb.load_balancer_arn
+  target_group_arn  = module.alb.target_group_arn
+  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
+  certificate_arn   = module.api_certificate_validation.certificate_arn
 }
 
 module "secrets_manager" {
@@ -96,12 +125,11 @@ module "iam" {
 module "amplify" {
   source = "../modules/amplify"
 
-  name           = "x-clone"
-  branch_name    = "stg"
-  api_url        = module.alb.api_url
-  domain_name    = "stg.x-clone.kyo8.dev"
-  hosted_zone_id = module.route53.zone_id
-  tags           = local.common_tags
+  name        = "x-clone"
+  branch_name = "stg"
+  api_url     = "https://api-v1.stg.x-clone.kyo8.dev"
+  domain_name = "stg.x-clone.kyo8.dev"
+  tags        = local.common_tags
 }
 
 module "ec2" {
@@ -163,7 +191,7 @@ module "ecs_service" {
   security_group_id   = module.security_group.api_id
   tags                = local.common_tags
 
-  depends_on = [module.iam, module.route_table, module.security_group]
+  depends_on = [module.iam, module.route_table, module.security_group, module.alb_listener]
 }
 
 module "rds" {

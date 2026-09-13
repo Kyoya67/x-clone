@@ -58,29 +58,3 @@ locals {
   # sub_domainは1件。「 CNAME 配信先」からCloudFrontのホスト名を取得する。
   domain_dns_record = regexall("\\S+", one(aws_amplify_domain_association.this.sub_domain).dns_record)
 }
-
-resource "aws_route53_record" "frontend_certificate_validation" {
-  zone_id = var.hosted_zone_id
-  name    = local.certificate_dns_record[0]
-  type    = local.certificate_dns_record[1]
-  records = [local.certificate_dns_record[2]]
-  ttl     = 300
-
-  # Amplifyが同じ検証レコードを自動作成した場合も、Terraform管理へ引き継ぐ。
-  allow_overwrite = true
-}
-
-resource "aws_route53_record" "frontend" {
-  zone_id = var.hosted_zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  # Amplify側が同じ配信用レコードを自動作成する場合にも対応する。
-  allow_overwrite = true
-
-  alias {
-    name                   = local.domain_dns_record[1]
-    zone_id                = "Z2FDTNDATAQYW2" # CloudFront共通のホストゾーンID
-    evaluate_target_health = false
-  }
-}

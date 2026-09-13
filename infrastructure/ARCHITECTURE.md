@@ -2,41 +2,16 @@
 
 ## 現在のAWSリソース構成
 
-### フロントエンド配信（Terraform定義追加・実環境未検証）
+### フロントエンド配信
 
-| リソース | 名前・設定 | 用途 |
-| --- | --- | --- |
-| Amplify Hosting | x-clone | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス |
-| Amplifyブランチ | stg | Git連携なしでビルド成果物を手動アップロードする配信先 |
-| 独自ドメイン（定義追加・未検証） | stg.x-clone.kyo8.dev → stgブランチ | Amplify管理証明書でHTTPS配信。Route 53のAエイリアス・検証CNAMEをTerraform管理 |
-| ビルド | ローカルのfrontend | npm ci・npm run buildを実行し、distの中身をZIP化 |
-| リライト | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応 |
-| API転送（定義追加・未検証） | /api/<*> → https://api-v1.stg.x-clone.kyo8.dev/<*> | /apiを除去してHTTPSで転送。SPAルールより先に評価 |
-
-Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはAmplifyコンソールのstgブランチで確認する。
-転送先はmodule.alb.api_urlから渡す。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。
-
-#### 作成と手動デプロイ
-
-1. stgでAWS_PROFILE=x-clone-terraform-stg make plan、AWS_PROFILE=x-clone-terraform-stg make applyを実行する。
-2. frontendでnpm ci、npm run buildを実行する。
-3. distの中身をZIPにする。ZIP直下にindex.htmlとassetsを配置し、distフォルダ自体は含めない。
-4. Amplifyコンソールで既存のx-cloneアプリのstgブランチにZIPをアップロードする。新しいアプリは作成しない。
-5. デプロイ成功後、Amplifyコンソールのstg公開URLで画面を確認する。
-
-今回のPRは公開・疎通確認を優先し、GitHub連携とCDは後続で対応する。GitHub App・PATは不要。フロント更新時はビルドとアップロードを繰り返し、インフラ設定を変える場合のみapplyする。
-
-#### 残作業（Issue #27）
-
-- Amplifyの/api転送設定のapply・実環境検証。公開URLの/api/health、一覧取得のクエリ、投稿・フォローの送信と再取得を確認する。
-- 独自ドメイン設定をapplyし、Amplifyのドメイン状態がAVAILABLEになった後、https://stg.x-clone.kyo8.devと/api/healthを確認する。
-- 公開画面からAPI・RDSへの読み書き確認。Amplify作成だけでは疎通完了としない。
-
-AmplifyではSPA配信のみを行い、DBの認証情報やAWS操作権限はフロントへ渡さない。
-
-独自ドメインは既存のstgブランチへ関連付けるため、ビルド成果物の再アップロードは不要。
-DNSレコードを同じapply内で作成できるよう、ドメイン関連付けのwait_for_verificationはfalseにしている。apply完了と証明書・配信設定の反映完了は別なので、AVAILABLEとHTTPS応答を確認する。
-stg.x-clone.kyo8.devはホストゾーンのルートでCNAMEを置けないため、Amplifyから取得したCloudFront配信先へAエイリアスを設定する。API用のapi-v1レコードはそのまま使う。
+| リソース        | 名前・設定                                         | 用途                                                                                                                                              |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Amplify Hosting | x-clone                                            | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス                                                                                          |
+| Amplifyブランチ | stg                                                | Git連携なしでビルド成果物を手動アップロードする配信先                                                                                             |
+| 独自ドメイン    | stg.x-clone.kyo8.dev → stgブランチ                 | Amplify管理証明書でHTTPS配信。Route 53のAエイリアス・検証CNAMEをTerraform管理                                                                     |
+| ビルド          | ローカルのfrontend                                 | npm ci・npm run buildを実行し、distの中身をZIP化                                                                                                  |
+| リライト        | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応                                                                                                               |
+| API転送         | /api/ → https://api-v1.stg.x-clone.kyo8.dev/       | /apiを除去してHTTPSで転送。SPAルールより先に評価。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。 |
 
 ### VPC・サブネットとリソース配置
 
@@ -44,34 +19,34 @@ ALBは実環境へ反映済み。APIドメインの/healthでHTTPS応答を確�
 
 VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
-| VPC内のサブネット | CIDR          | 現在配置されているリソース                        |
-| ----------------- | ------------- | ------------------------------------------------- |
-| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api |
+| VPC内のサブネット | CIDR          | 現在配置されているリソース        |
+| ----------------- | ------------- | --------------------------------- |
+| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api   |
 | ├ public-1c       | 10.0.64.0/18  | ALB api（同じALBを2つのAZに配置） |
-| ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）                     |
-| └ private-1c      | 10.0.192.0/18 | なし                                              |
+| ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）     |
+| └ private-1c      | 10.0.192.0/18 | なし                              |
 
 ### リソースとセキュリティーグループの対応・許可する通信
 
 | AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
 | ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
-| ALB：api | api-alb | APIのHTTPS公開 | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送） | api SGへTCP 8080 |
-| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080<br>nat-instance SGからTCP 8080（手動API確認） | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ALB：api          | api-alb                | APIのHTTPS公開            | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送）                                                                     | api SGへTCP 8080                      |
+| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080<br>nat-instance SGからTCP 8080（手動API確認）                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
 
 ### APIのHTTPS公開
 
-| 構成要素 | 設定 |
-| --- | --- |
-| APIドメイン | api-v1.stg.x-clone.kyo8.dev |
-| Route 53 | 既存のstg.x-clone.kyo8.devゾーンをimportして管理し、ALBへのAエイリアスを作成 |
-| ACM | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEもTerraformで作成 |
-| ALB api | HTTPS 443でTLSを終端。HTTP 80はHTTPSへリダイレクト |
-| ターゲットグループ | Fargate用のip形式、HTTP 8080。タスクの登録・解除はECSサービスが実施 |
-| ECSサービス api | APIコンテナの8080へ転送。起動後60秒はヘルスチェック失敗を猶予 |
-| ヘルスチェック | /healthのHTTP 200。DBへの問い合わせは行わない |
+| 構成要素           | 設定                                                                         |
+| ------------------ | ---------------------------------------------------------------------------- |
+| APIドメイン        | api-v1.stg.x-clone.kyo8.dev                                                  |
+| Route 53           | 既存のstg.x-clone.kyo8.devゾーンをimportして管理し、ALBへのAエイリアスを作成 |
+| ACM                | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEもTerraformで作成   |
+| ALB api            | HTTPS 443でTLSを終端。HTTP 80はHTTPSへリダイレクト                           |
+| ターゲットグループ | Fargate用のip形式、HTTP 8080。タスクの登録・解除はECSサービスが実施          |
+| ECSサービス api    | APIコンテナの8080へ転送。起動後60秒はヘルスチェック失敗を猶予                |
+| ヘルスチェック     | /healthのHTTP 200。DBへの問い合わせは行わない                                |
 
 外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
 TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
@@ -80,12 +55,12 @@ ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplif
 
 反映時はstgで次を実行し、既存リソースの不要な削除・再作成がないことをplanで確認する。
 
-`````bash
+```bash
 AWS_PROFILE=x-clone-terraform-stg terraform init
 AWS_PROFILE=x-clone-terraform-stg make plan
 AWS_PROFILE=x-clone-terraform-stg make apply
 curl --fail --show-error https://api-v1.stg.x-clone.kyo8.dev/health
-`````
+```
 
 証明書のDNS検証完了後にHTTPSリスナーを作り、その後ECSサービスを更新する。/health成功だけではRDSの継続的な接続確認にならないため、後続で一覧取得・投稿による読み書きを確認する。
 
