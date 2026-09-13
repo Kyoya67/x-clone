@@ -18,6 +18,25 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - Serviceの入力エラーを`400 Bad Request`へ変換する
 - Serviceの内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
 - ログインユーザーがフォローしているユーザーIDを`200 OK`で返す
+- フォロー一覧のJSON書き込み失敗時は`500 Internal Server Error`を返す
+
+`health.go`では、次の観点をテストしている。
+
+- ヘルスチェックで`200 OK`と`{"status":"ok"}`を返す
+
+`swagger.go`では、次の観点をテストしている。
+
+- Swagger UIのHTMLを返す
+- OpenAPI仕様ファイルを返す
+- OpenAPI仕様ファイルが存在しない場合は`500 Internal Server Error`を返す
+- 複数の探索パスからOpenAPI仕様ファイルを読み取る
+
+`timeline.go`では、次の観点をテストしている。
+
+- タイムライン取得結果をJSONで返す
+- `feed`未指定時は`for_you`として扱う
+- Serviceの内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
+- タイムラインのJSON書き込み失敗時は`500 Internal Server Error`を返す
 
 ### カバレッジ結果
 
@@ -26,18 +45,26 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 | follow.go | NewFollowController   |     100.0% |
 |           | Follow                |     100.0% |
 |           | Unfollow              |     100.0% |
-|           | ListFollowing         |      66.7% |
+|           | ListFollowing         |     100.0% |
 |           | handleFollowAction    |     100.0% |
 |           | followeeIDFromRequest |     100.0% |
+| health.go | NewHealthController   |     100.0% |
+|           | Health                |     100.0% |
 | post.go   | NewPostController     |     100.0% |
 |           | Create                |     100.0% |
+| swagger.go | SwaggerUI            |     100.0% |
+|           | OpenAPISpec           |     100.0% |
+|           | readOpenAPISpec       |     100.0% |
+| timeline.go | NewTimelineController |   100.0% |
+|           | List                  |     100.0% |
+| 合計      | -                     |     100.0% |
 
 計測コマンド：
 
 ```bash
 cd backend
-go test ./internal/controllers -run '^(TestPostController|TestFollowController)' -coverprofile=/tmp/controller-cover.out
-go tool cover -func=/tmp/controller-cover.out | grep -E 'post.go|follow.go'
+go test ./internal/controllers -coverprofile=/tmp/controller-cover.out
+go tool cover -func=/tmp/controller-cover.out
 ```
 
 ## internal/services
@@ -68,6 +95,7 @@ Serviceの依存先はFakeへ差し替え、業務ロジックとrepository呼�
 |           | validateFollowRelation |     100.0% |
 | post.go   | NewPostService         |     100.0% |
 |           | Create                 |     100.0% |
+| 合計      | -                      |      80.0% |
 
 計測コマンド：
 
@@ -94,6 +122,12 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 - フォロー中ユーザーIDを取得するSQLと結果マッピングを検証する
 - DBエラーをアプリケーションエラーへ分類する
 
+`timeline.go`では、次の観点をテストしている。
+
+- `for_you`のタイムライン取得SQLと結果マッピングを検証する
+- `following`のタイムライン取得SQLと引数を検証する
+- Query・Scan・RowsのDBエラーをアプリケーションエラーへ分類する
+
 `post_error.go`では、次の観点をテストしている。
 
 - PostgreSQLのエラーコードをアプリケーションエラーへ分類する
@@ -105,18 +139,21 @@ Repositoryでは`sqlmock`を使用し、実際のPostgreSQLへ接続せずにSQL
 | follow.go     | NewFollowRepository   |     100.0% |
 |               | Follow                |     100.0% |
 |               | Unfollow              |     100.0% |
-|               | ListFolloweeIDs       |      76.9% |
+|               | ListFolloweeIDs       |     100.0% |
 |               | execute               |     100.0% |
 | post.go       | NewPostRepository     |     100.0% |
 |               | Create                |     100.0% |
 | post_error.go | classifyPostgresError |     100.0% |
+| timeline.go   | NewTimelineRepository |     100.0% |
+|               | List                  |     100.0% |
+| 合計          | -                     |     100.0% |
 
 計測コマンド：
 
 ```bash
 cd backend
-go test ./internal/repositories -run '^(TestPostRepository|TestFollowRepository|TestClassifyPostgresError)' -coverprofile=/tmp/repository-cover.out
-go tool cover -func=/tmp/repository-cover.out | grep -E 'post|follow'
+go test ./internal/repositories -coverprofile=/tmp/repository-cover.out
+go tool cover -func=/tmp/repository-cover.out
 ```
 
 ## internal/apperrors
