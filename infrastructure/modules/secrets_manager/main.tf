@@ -29,3 +29,19 @@ resource "aws_secretsmanager_secret" "migration_user" {
   recovery_window_in_days = 7
   tags                    = var.tags
 }
+
+resource "aws_secretsmanager_secret" "auth" {
+  name                    = var.auth.name
+  description             = "auth: OIDC client secret and session signing secret"
+  recovery_window_in_days = 7
+  tags                    = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "auth" {
+  secret_id = aws_secretsmanager_secret.auth.id
+  secret_string_wo = jsonencode({
+    client_secret  = var.auth_client_secret
+    session_secret = var.auth_session_secret
+  })
+  secret_string_wo_version = var.auth_secret_version
+}

@@ -18,6 +18,8 @@
     ├── issue: DBユーザー管理・マイグレーション実行基盤を整理する
     ├── issue: フロントエンドをstg環境へデプロイし、API・RDSとの疎通を確認する
     └── issue: ECRへのイメージpushとECSへの反映を自動化する
+└── Milestone 3: 本番品質化
+    └── issue: Google OIDCによるログイン機能を実装する
 ```
 
 Milestoneは関連するIssueを段階ごとにまとめ、Issueは個別の作業を管理する。
@@ -174,6 +176,20 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 | ---- | ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | ⭕️   | GitHub OIDC            | GitHub ActionsからAWS API実行 | 長期AWSアクセスキーをGitHub Secretsへ保存せず、一時認証でAmplify・ECR・ECSへのデプロイを実行できるため採用する。                         |
 | —    | GitHub SecretsのAWSキー | GitHub ActionsからAWS API実行 | 実装は単純だが、長期キーをGitHub Secretsで管理する必要があるため採用しない。                                                             |
+
+### ログイン方式
+
+| 採用 | 選択肢 | 役割 | 判断理由 |
+| ---- | ------ | ---- | -------- |
+| ⭕️   | Cognito Hosted UI + Google OIDC | 利用者ログイン | Googleアカウントで実在ユーザーを確認でき、認証画面・OAuth/OIDC連携をアプリ側で自前実装しなくてよいため採用する。 |
+| —    | アプリ独自のメール・パスワード認証 | 利用者ログイン | パスワード保存、リセット、MFAなどの実装・運用責務が増えるため採用しない。 |
+| —    | 独自WebAuthn/パスキー | 利用者ログイン | セキュアだが実装範囲が大きい。今回はGoogle OIDCを先に実装し、パスキーは後続検討にする。 |
+
+### BFFでのセッション管理
+
+ブラウザは`/auth/login`からCognito Hosted UIへ遷移し、ログイン後に`/auth/callback`へ戻る。backendはauthorization codeをtokenへ交換し、ID tokenを検証してアプリ内ユーザーを作成・取得する。
+
+ブラウザのJavaScriptへCognito tokenを渡さない。backendは認証済みユーザーIDを署名済みsessionとしてhttpOnly、Secure、SameSite=Lax Cookieへ保存し、以降のAPIリクエストではCookieからユーザーIDを復元する。
 
 AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
 

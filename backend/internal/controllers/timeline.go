@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/auth"
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/models"
 )
 
@@ -27,7 +28,13 @@ func (c *TimelineController) List(w http.ResponseWriter, r *http.Request) {
 		feed = models.TimelineFeedForYou
 	}
 
-	posts, err := c.service.List(r.Context(), fixedAuthorID, feed)
+	userID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+
+	posts, err := c.service.List(r.Context(), userID, feed)
 	if err != nil {
 		apperrors.ErrorHandler(w, r, err)
 		return

@@ -37,3 +37,35 @@ variable "dbadmin_password_version" {
     error_message = "Password version must be a positive integer."
   }
 }
+
+variable "google_client_id" {
+  type        = string
+  nullable    = false
+  description = "Google OAuth client ID for Cognito Hosted UI."
+}
+
+variable "google_client_secret" {
+  type        = string
+  sensitive   = true
+  nullable    = false
+  description = "Google OAuth client secret for Cognito Hosted UI."
+}
+
+variable "auth_session_secret" {
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+  nullable    = false
+  description = "Secret used by the backend to sign httpOnly session cookies."
+}
+
+variable "auth_secret_version" {
+  type        = number
+  default     = 1
+  description = "Increment when changing auth secrets."
+
+  validation {
+    condition     = var.auth_secret_version >= 1 && floor(var.auth_secret_version) == var.auth_secret_version
+    error_message = "Auth secret version must be a positive integer."
+  }
+}

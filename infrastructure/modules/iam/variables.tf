@@ -10,6 +10,10 @@ variable "database_secret_arn" {
   type = string
 }
 
+variable "auth_secret_arn" {
+  type = string
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

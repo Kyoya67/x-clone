@@ -11,6 +11,7 @@ const (
 	NotFound             ErrCode = "R004"
 	RequestBodyTooLarge  ErrCode = "R005"
 	UnknownField         ErrCode = "R006"
+	Unauthorized         ErrCode = "R007"
 
 	DependencyUnavailable ErrCode = "D001"
 	DataMappingFailed     ErrCode = "D006"

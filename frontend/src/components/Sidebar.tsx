@@ -1,8 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
+import { useOptionalAuth } from '../state/AuthContext'
 
 export function Sidebar() {
+  const auth = useOptionalAuth()
+  const user = auth?.user
+  const displayName = user?.displayName ?? currentUser.displayName
+  const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
+  const avatar = displayName.slice(0, 1) || 'U'
+
   return (
     <aside className="sidebar">
       <div className="brand-mark">𝕏</div>
@@ -40,14 +47,22 @@ export function Sidebar() {
       >
         ポストする
       </button>
-      <button className="account-card" type="button">
-        <span className="avatar avatar-blue">{currentUser.avatar}</span>
+      <div className="account-card">
+        <span className="avatar avatar-blue">{avatar}</span>
         <span className="account-copy">
-          <strong>{currentUser.displayName}</strong>
-          <small>{currentUser.handle}</small>
+          <strong>{displayName}</strong>
+          <small>@{handle}</small>
         </span>
-        <span className="more">•••</span>
-      </button>
+        <span className="more">
+          {auth ? (
+            <button type="button" onClick={() => void auth.logout()}>
+              ログアウト
+            </button>
+          ) : (
+            '•••'
+          )}
+        </span>
+      </div>
     </aside>
   )
 }

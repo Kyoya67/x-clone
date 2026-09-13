@@ -13,9 +13,16 @@ resource "aws_amplify_app" "this" {
     status = "200"
   }
 
+  # /auth/login、/auth/callback、/auth/me、/auth/logoutをBFFへ転送する。
+  custom_rule {
+    source = "/auth/<*>"
+    target = "${var.api_url}/auth/<*>"
+    status = "200"
+  }
+
   # 画面URLをSPAへ渡す。APIと拡張子付きの静的ファイルは対象外。
   custom_rule {
-    source = "</^(?!/api(?:/|$))[^.]*$/>"
+    source = "</^(?!/(api|auth)(?:/|$))[^.]*$/>"
     target = "/index.html"
     status = "200"
   }

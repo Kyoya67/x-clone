@@ -10,8 +10,11 @@ import (
 	"testing"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/auth"
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/models"
 )
+
+const testUserID = "00000000-0000-0000-0000-000000000001"
 
 type fakePostService struct {
 	post models.Post
@@ -23,10 +26,10 @@ func (f *fakePostService) Create(_ context.Context, _ string, _ models.CreatePos
 }
 
 func TestPostControllerCreate(t *testing.T) {
-	service := &fakePostService{post: models.Post{ID: "post-1", AuthorID: fixedAuthorID, Content: "hello"}}
+	service := &fakePostService{post: models.Post{ID: "post-1", AuthorID: testUserID, Content: "hello"}}
 	controller := NewPostController(service)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":"hello"}`))
+	request := authenticatedRequest(httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":"hello"}`)))
 
 	controller.Create(recorder, request)
 
@@ -42,10 +45,14 @@ func TestPostControllerCreate(t *testing.T) {
 	}
 }
 
+func authenticatedRequest(request *http.Request) *http.Request {
+	return request.WithContext(auth.WithUserID(request.Context(), testUserID))
+}
+
 func TestPostControllerReturnsGenericError(t *testing.T) {
 	controller := NewPostController(&fakePostService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":"hello"}`))
+	request := authenticatedRequest(httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":"hello"}`)))
 
 	controller.Create(recorder, request)
 
@@ -60,7 +67,7 @@ func TestPostControllerReturnsGenericError(t *testing.T) {
 func TestPostControllerRejectsUnknownField(t *testing.T) {
 	controller := NewPostController(&fakePostService{})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"cotent":"hello"}`))
+	request := authenticatedRequest(httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"cotent":"hello"}`)))
 
 	controller.Create(recorder, request)
 
@@ -78,7 +85,7 @@ func TestPostControllerRejectsUnknownField(t *testing.T) {
 func TestPostControllerRejectsInvalidJSON(t *testing.T) {
 	controller := NewPostController(&fakePostService{})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":}`))
+	request := authenticatedRequest(httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":}`)))
 
 	controller.Create(recorder, request)
 
@@ -95,7 +102,7 @@ func TestPostControllerReturnsServiceValidationError(t *testing.T) {
 		err: apperrors.BadParam.Wrap(nil, "content must be between 1 and 280 characters"),
 	})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":""}`))
+	request := authenticatedRequest(httptest.NewRequest(http.MethodPost, "/posts", strings.NewReader(`{"content":""}`)))
 
 	controller.Create(recorder, request)
 

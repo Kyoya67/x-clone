@@ -5,9 +5,14 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/auth"
 )
+
+const routerTestUserID = "00000000-0000-0000-0000-000000000001"
+const routerTestSessionSecret = "test-session-secret"
 
 func TestHealth(t *testing.T) {
 	recorder := httptest.NewRecorder()
@@ -66,6 +71,7 @@ func TestFollow(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPut, "/users/00000000-0000-0000-0000-000000000002/follow", nil)
+	authenticateRouterRequest(t, request)
 
 	NewRouter(db).ServeHTTP(recorder, request)
 
@@ -91,6 +97,7 @@ func TestUnfollow(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodDelete, "/users/00000000-0000-0000-0000-000000000002/follow", nil)
+	authenticateRouterRequest(t, request)
 
 	NewRouter(db).ServeHTTP(recorder, request)
 
@@ -115,6 +122,7 @@ func TestTimeline(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/timeline?feed=following", nil)
+	authenticateRouterRequest(t, request)
 
 	NewRouter(db).ServeHTTP(recorder, request)
 
@@ -124,4 +132,14 @@ func TestTimeline(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func authenticateRouterRequest(t *testing.T, request *http.Request) {
+	t.Helper()
+	t.Setenv("AUTH_SESSION_SECRET", routerTestSessionSecret)
+	session, err := auth.SignSession(routerTestUserID, routerTestSessionSecret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
 }

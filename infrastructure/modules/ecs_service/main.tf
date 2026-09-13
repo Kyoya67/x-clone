@@ -29,5 +29,11 @@ resource "aws_ecs_service" "this" {
     assign_public_ip = false
   }
 
+  lifecycle {
+    # ECSサービスが参照するtask definition revisionはGitHub Actions CDが更新する。
+    # Terraform applyで古いrevisionへ戻さないため、差分は無視する。
+    ignore_changes = [task_definition]
+  }
+
   tags = var.tags
 }

@@ -31,14 +31,14 @@ func TestTimelineControllerList(t *testing.T) {
 	service := &fakeTimelineService{posts: []models.TimelinePost{{ID: "post-1"}}}
 	controller := NewTimelineController(service)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/timeline?feed=following", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/timeline?feed=following", nil))
 
 	controller.List(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if !service.called || service.userID != fixedAuthorID || service.feed != models.TimelineFeedFollowing {
+	if !service.called || service.userID != testUserID || service.feed != models.TimelineFeedFollowing {
 		t.Fatalf("unexpected service call: %+v", service)
 	}
 	var response models.TimelineResponse
@@ -54,7 +54,7 @@ func TestTimelineControllerListDefaultsToForYou(t *testing.T) {
 	service := &fakeTimelineService{}
 	controller := NewTimelineController(service)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/timeline", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/timeline", nil))
 
 	controller.List(recorder, request)
 
@@ -69,7 +69,7 @@ func TestTimelineControllerListDefaultsToForYou(t *testing.T) {
 func TestTimelineControllerListReturnsServiceError(t *testing.T) {
 	controller := NewTimelineController(&fakeTimelineService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/timeline", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/timeline", nil))
 
 	controller.List(recorder, request)
 
@@ -84,7 +84,7 @@ func TestTimelineControllerListReturnsServiceError(t *testing.T) {
 func TestTimelineControllerListHandlesEncodeError(t *testing.T) {
 	controller := NewTimelineController(&fakeTimelineService{})
 	recorder := &failingResponseWriter{header: http.Header{}}
-	request := httptest.NewRequest(http.MethodGet, "/timeline", nil)
+	request := authenticatedRequest(httptest.NewRequest(http.MethodGet, "/timeline", nil))
 
 	controller.List(recorder, request)
 

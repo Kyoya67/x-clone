@@ -77,9 +77,12 @@ resource "aws_iam_policy" "api_execution" {
         Resource = "${var.log_group_arn}:*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = var.database_secret_arn
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [
+          var.database_secret_arn,
+          var.auth_secret_arn
+        ]
       }
     ]
   })
