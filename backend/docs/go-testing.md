@@ -20,6 +20,7 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - プロフィール更新の内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
 - ログアウト時にsession Cookieを削除する
 - Middlewareでsession Cookieを検証し、ユーザーIDをcontextへ渡す
+- Middlewareで不正なsession Cookieを検出した場合にCookieを削除する
 - 認可コード交換でtoken endpointへ必要な値を送信し、`id_token`を取得する
 - token endpointの非`200 OK`レスポンスや不正なtokenレスポンスをエラーへ変換する
 

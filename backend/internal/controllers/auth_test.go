@@ -451,7 +451,10 @@ func TestAuthMiddlewareRequiresSessionCookie(t *testing.T) {
 }
 
 func TestAuthMiddlewareRejectsInvalidSessionCookie(t *testing.T) {
-	controller := NewAuthController(AuthConfig{SessionSecret: testAuthSessionSecret}, fakeAuthUserService{})
+	controller := NewAuthController(AuthConfig{
+		SessionSecret: testAuthSessionSecret,
+		Cookie:        auth.CookieConfig{Domain: "example.com", Secure: true},
+	}, fakeAuthUserService{})
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/private", nil)
@@ -462,6 +465,10 @@ func TestAuthMiddlewareRejectsInvalidSessionCookie(t *testing.T) {
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != auth.SessionCookieName || cookies[0].MaxAge != -1 || cookies[0].Domain != "example.com" {
+		t.Fatalf("expected cleared session cookie, got %#v", cookies)
 	}
 }
 

@@ -204,6 +204,7 @@ func (c *AuthController) Middleware(next http.Handler) http.Handler {
 		}
 		userID, err := auth.VerifySession(cookie.Value, c.config.SessionSecret, c.now())
 		if err != nil {
+			auth.ClearSessionCookie(w, c.config.Cookie)
 			apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
 			return
 		}
