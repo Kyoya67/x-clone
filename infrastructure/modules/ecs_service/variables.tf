@@ -21,3 +21,7 @@ variable "security_group_id" {
 variable "tags" {
   type = map(string)
 }
+
+variable "target_group_arn" {
+  type = string
+}

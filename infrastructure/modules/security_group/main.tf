@@ -1,6 +1,40 @@
 data "aws_region" "current" {}
 
 /*********************************************************************
+ * 公開ALB用SG（api-alb）と通信ルール
+ *********************************************************************/
+resource "aws_security_group" "api_alb" {
+  name        = "api-alb"
+  description = "Public HTTPS entry point for the API"
+  vpc_id      = var.vpc_id
+  tags        = merge(var.tags, { Name = "api-alb-sg" })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  security_group_id = aws_security_group.api_alb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.api_alb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_api" {
+  security_group_id            = aws_security_group.api_alb.id
+  referenced_security_group_id = aws_security_group.api.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8080
+  to_port                      = 8080
+}
+
+/*********************************************************************
  * API用SG（api）と通信ルール
  *********************************************************************/
 resource "aws_security_group" "api" {
@@ -14,10 +48,18 @@ resource "aws_security_group" "api" {
   tags        = merge(var.tags, { Name = "api-sg" })
 }
 
-# SSMで接続したNATホストからAPIのhealthを確認する。外部公開はしない。
+# SSMで接続したNATホストからAPIのhealthを直接確認する。
 resource "aws_vpc_security_group_ingress_rule" "api_from_nat" {
   security_group_id            = aws_security_group.api.id
   referenced_security_group_id = aws_security_group.nat.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8080
+  to_port                      = 8080
+}
+
+resource "aws_vpc_security_group_ingress_rule" "api_from_alb" {
+  security_group_id            = aws_security_group.api.id
+  referenced_security_group_id = aws_security_group.api_alb.id
   ip_protocol                  = "tcp"
   from_port                    = 8080
   to_port                      = 8080

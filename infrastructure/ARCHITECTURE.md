@@ -25,7 +25,7 @@ Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはampl
 
 #### 残作業（Issue #27）
 
-- APIのHTTPS公開経路と/apiの転送設定。Viteの開発用プロキシはAmplify上では動かない。
+- APIのHTTPS公開経路のapply・実環境検証と、Amplifyの/api転送設定。Viteの開発用プロキシはAmplify上では動かない。
 - 独自ドメインstg.x-clone.kyo8.devの関連付けとDNS設定。
 - 公開画面からAPI・RDSへの読み書き確認。Amplify作成だけでは疎通完了としない。
 
@@ -33,12 +33,14 @@ AmplifyではSPA配信のみを行い、DBの認証情報やAWS操作権限は�
 
 ### VPC・サブネットとリソース配置
 
+ALBはTerraform定義を追加済み。実環境への反映・HTTPS疎通は未確認。
+
 VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
 | VPC内のサブネット | CIDR          | 現在配置されているリソース                        |
 | ----------------- | ------------- | ------------------------------------------------- |
-| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）。外向き通信とSSM接続の中継 |
-| ├ public-1c       | 10.0.64.0/18  | なし                                              |
+| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api（追加予定） |
+| ├ public-1c       | 10.0.64.0/18  | ALB api（追加予定。同じALBを2つのAZに配置） |
 | ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）                     |
 | └ private-1c      | 10.0.192.0/18 | なし                                              |
 
@@ -47,9 +49,38 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 | AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
 | ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
-| ECS：api          | api                    | APIサーバー               | nat-instance SGからTCP 8080（手動API確認）                                                                      | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ALB：api（追加予定） | api-alb | APIのHTTPS公開 | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送） | api SGへTCP 8080 |
+| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080（追加予定）<br>nat-instance SGからTCP 8080（手動API確認） | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
+
+### APIのHTTPS公開（Terraform定義追加・実環境未検証）
+
+| 構成要素 | 設定 |
+| --- | --- |
+| APIドメイン | api-v1.stg.x-clone.kyo8.dev |
+| Route 53 | 既存のstg.x-clone.kyo8.devゾーンをimportして管理し、ALBへのAエイリアスを作成 |
+| ACM | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEもTerraformで作成 |
+| ALB api | HTTPS 443でTLSを終端。HTTP 80はHTTPSへリダイレクト |
+| ターゲットグループ | Fargate用のip形式、HTTP 8080。タスクの登録・解除はECSサービスが実施 |
+| ECSサービス api | APIコンテナの8080へ転送。起動後60秒はヘルスチェック失敗を猶予 |
+| ヘルスチェック | /healthのHTTP 200。DBへの問い合わせは行わない |
+
+外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
+TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
+ALB・ACM・DNSの定義はmodules/alb、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
+APIのパスは/health・/postsなどをそのまま転送し、/apiの除去は後続のAmplify設定で対応する。
+
+反映時はstgで次を実行し、既存リソースの不要な削除・再作成がないことをplanで確認する。
+
+`````bash
+AWS_PROFILE=x-clone-terraform-stg terraform init
+AWS_PROFILE=x-clone-terraform-stg make plan
+AWS_PROFILE=x-clone-terraform-stg make apply
+curl --fail --show-error https://api-v1.stg.x-clone.kyo8.dev/health
+`````
+
+証明書のDNS検証完了後にHTTPSリスナーを作り、その後ECSサービスを更新する。/health成功だけではRDSの継続的な接続確認にならないため、後続で一覧取得・投稿による読み書きを確認する。
 
 ### IAMユーザー・ロール・ポリシー
 

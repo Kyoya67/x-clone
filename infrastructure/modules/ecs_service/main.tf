@@ -5,6 +5,14 @@ resource "aws_ecs_service" "this" {
   launch_type     = "FARGATE"
   desired_count   = 1
 
+  health_check_grace_period_seconds = 60
+
+  load_balancer {
+    target_group_arn = var.target_group_arn
+    container_name   = "api"
+    container_port   = 8080
+  }
+
   # 更新時は旧タスクを維持して新タスクを起動する（一時的に最大2タスク）。
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
