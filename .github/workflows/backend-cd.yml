@@ -2,64 +2,49 @@ name: Backend CD
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows:
+      - Backend CI
+    types:
+      - completed
     branches:
       - develop
       - main
-    paths:
-      - "backend/cmd/api/**"
-      - "backend/cmd/healthcheck/**"
-      - "backend/cmd/migrate-rds/**"
-      - "backend/internal/**"
-      - "backend/migrations/**"
-      - "backend/scripts/ecs-migrate.sh"
-      - "backend/Dockerfile"
-      - "backend/go.mod"
-      - "backend/go.sum"
-      - ".github/workflows/backend-cd.yml"
 
 permissions:
   contents: read
   id-token: write
 
 env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ROLE_ARN: ${{ secrets[github.ref_name == 'main' && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
-  AWS_ACCOUNT_ID: ${{ vars[github.ref_name == 'main' && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AWS_ACCOUNT_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
   ECS_CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME }}
   ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
   API_TASK_FAMILY: ${{ vars.API_TASK_FAMILY }}
   MIGRATION_TASK_FAMILY: ${{ vars.MIGRATION_TASK_FAMILY }}
   API_ECR_REPOSITORY: ${{ vars.API_ECR_REPOSITORY }}
   MIGRATION_ECR_REPOSITORY: ${{ vars.MIGRATION_ECR_REPOSITORY }}
-  API_HEALTH_URL: ${{ vars[github.ref_name == 'main' && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
-  DEPLOY_ENV: ${{ vars[github.ref_name == 'main' && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
+  API_HEALTH_URL: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
+  DEPLOY_ENV: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
 
 jobs:
-  deploy:
+  build-images:
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: backend
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      migration_image: ${{ steps.images.outputs.migration_image }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
         with:
-          go-version: "1.25.5"
-          cache-dependency-path: backend/go.sum
-
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-
-      - name: Run tests
-        run: go test ./...
-
-      - name: Run vet
-        run: go vet ./...
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Validate deployment variables
         run: |
@@ -86,10 +71,11 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push images
+        id: images
         run: |
           set -euo pipefail
           registry="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-          image_tag="${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          image_tag="${DEPLOY_SHA::7}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
 
           api_image="$registry/$API_ECR_REPOSITORY:$image_tag"
           migration_image="$registry/$MIGRATION_ECR_REPOSITORY:$image_tag"
@@ -101,9 +87,28 @@ jobs:
           docker push "$migration_image"
 
           {
-            echo "API_IMAGE=$api_image"
-            echo "MIGRATION_IMAGE=$migration_image"
-          } >> "$GITHUB_ENV"
+            echo "api_image=$api_image"
+            echo "migration_image=$migration_image"
+          } >> "$GITHUB_OUTPUT"
+
+  run-migration:
+    runs-on: ubuntu-latest
+    needs: build-images
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
 
       - name: Register migration task definition
         run: |
@@ -113,7 +118,7 @@ jobs:
             --query taskDefinition \
             --output json > migration-task-definition.json
 
-          jq --arg image "$MIGRATION_IMAGE" '
+          jq --arg image "${{ needs['build-images'].outputs.migration_image }}" '
             .containerDefinitions |= map(if .name == "migration" then .image = $image else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
           ' migration-task-definition.json > migration-task-definition-next.json
@@ -133,7 +138,29 @@ jobs:
           DEPLOY_ENV="$DEPLOY_ENV" \
             bash scripts/ecs-migrate.sh up
 
+  register-api-task-definition:
+    runs-on: ubuntu-latest
+    needs: build-images
+    defaults:
+      run:
+        working-directory: backend
+    outputs:
+      task_definition_arn: ${{ steps.register.outputs.task_definition_arn }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
       - name: Register API task definition
+        id: register
         run: |
           set -euo pipefail
           aws ecs describe-task-definition \
@@ -141,7 +168,7 @@ jobs:
             --query taskDefinition \
             --output json > api-task-definition.json
 
-          jq --arg image "$API_IMAGE" '
+          jq --arg image "${{ needs['build-images'].outputs.api_image }}" '
             .containerDefinitions |= map(if .name == "api" then .image = $image else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
           ' api-task-definition.json > api-task-definition-next.json
@@ -151,7 +178,28 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)"
 
-          echo "API_TASK_DEFINITION_ARN=$api_task_definition_arn" >> "$GITHUB_ENV"
+          echo "task_definition_arn=$api_task_definition_arn" >> "$GITHUB_OUTPUT"
+
+  update-api-service:
+    runs-on: ubuntu-latest
+    needs:
+      - run-migration
+      - register-api-task-definition
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
 
       - name: Update ECS service
         run: |
@@ -159,7 +207,7 @@ jobs:
           aws ecs update-service \
             --cluster "$ECS_CLUSTER_NAME" \
             --service "$ECS_SERVICE_NAME" \
-            --task-definition "$API_TASK_DEFINITION_ARN" \
+            --task-definition "${{ needs['register-api-task-definition'].outputs.task_definition_arn }}" \
             --output json >/dev/null
 
           aws ecs wait services-stable \

@@ -1,4 +1,4 @@
-# ビルドとテストはホスト側のCPUで行い、実行先向けにクロスコンパイルする。
+# ビルドはホスト側のCPUで行い、実行先向けにクロスコンパイルする。
 FROM --platform=$BUILDPLATFORM golang:1.25.5-bookworm AS build
 WORKDIR /src
 
@@ -12,7 +12,6 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go test ./... && go vet ./...
 
 ARG TARGETOS
 ARG TARGETARCH

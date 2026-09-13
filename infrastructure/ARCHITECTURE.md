@@ -75,8 +75,8 @@ ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplif
 
 | Workflow | 起動条件 | 主な処理 |
 | -------- | -------- | -------- |
-| .github/workflows/frontend-cd.yml | develop・mainへのfrontendアプリ関連ファイル変更、手動実行 | frontendのformat:check・test・buildを実行し、distのZIPをAmplify Hostingへデプロイ |
-| .github/workflows/backend-cd.yml | develop・mainへのbackend/cmd/api、backend/cmd/migrate-rds、internal、migrationsなどの変更、手動実行 | backendのgofmt・test・vetを実行し、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+| .github/workflows/frontend-cd.yml | develop・mainへのfrontend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | develop・mainへのbackend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
 
 GitHub ActionsからAWSへの認証は、GitHub OIDCでAWS IAMロールを引き受ける。長期AWSアクセスキーはGitHub Secretsに保存しない。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。developはstg用、mainはprd用の値を参照する。
 
