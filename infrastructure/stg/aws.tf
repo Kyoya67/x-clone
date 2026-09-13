@@ -1,3 +1,19 @@
+module "amplify" {
+  source = "../modules/amplify"
+
+  name        = "x-clone"
+  branch_name = "stg"
+  tags        = local.common_tags
+}
+
+output "amplify_app_id" {
+  value = module.amplify.app_id
+}
+
+output "amplify_url" {
+  value = module.amplify.url
+}
+
 module "vpc" {
   source     = "../modules/vpc"
   cidr_block = "10.0.0.0/16"

@@ -2,6 +2,35 @@
 
 ## 現在のAWSリソース構成
 
+### フロントエンド配信（Terraform定義追加・実環境未検証）
+
+| リソース | 名前・設定 | 用途 |
+| --- | --- | --- |
+| Amplify Hosting | x-clone | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス |
+| Amplifyブランチ | stg | Git連携なしでビルド成果物を手動アップロードする配信先 |
+| ビルド | ローカルのfrontend | npm ci・npm run buildを実行し、distの中身をZIP化 |
+| リライト | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応 |
+
+Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはamplify_urlから取得する。
+
+#### 作成と手動デプロイ
+
+1. stgでAWS_PROFILE=x-clone-terraform-stg make plan、AWS_PROFILE=x-clone-terraform-stg make applyを実行する。
+2. frontendでnpm ci、npm run buildを実行する。
+3. distの中身をZIPにする。ZIP直下にindex.htmlとassetsを配置し、distフォルダ自体は含めない。
+4. Amplifyコンソールで既存のx-cloneアプリのstgブランチにZIPをアップロードする。新しいアプリは作成しない。
+5. デプロイ成功後、terraform output -raw amplify_urlのURLで画面を確認する。
+
+今回のPRは公開・疎通確認を優先し、GitHub連携とCDは後続で対応する。GitHub App・PATは不要。フロント更新時はビルドとアップロードを繰り返し、インフラ設定を変える場合のみapplyする。
+
+#### 残作業（Issue #27）
+
+- APIのHTTPS公開経路と/apiの転送設定。Viteの開発用プロキシはAmplify上では動かない。
+- 独自ドメインstg.x-clone.kyo8.devの関連付けとDNS設定。
+- 公開画面からAPI・RDSへの読み書き確認。Amplify作成だけでは疎通完了としない。
+
+AmplifyではSPA配信のみを行い、DBの認証情報やAWS操作権限はフロントへ渡さない。
+
 ### VPC・サブネットとリソース配置
 
 VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
