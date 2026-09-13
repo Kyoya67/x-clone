@@ -92,6 +92,9 @@ function createFetchMock() {
     if (url === '/api/posts') {
       return Promise.resolve(jsonResponse(postResponse, 201))
     }
+    if (url.endsWith('/like')) {
+      return Promise.resolve(new Response(null, { status: 204 }))
+    }
     return Promise.resolve(new Response(null, { status: 404 }))
   })
 }

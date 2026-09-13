@@ -11,6 +11,8 @@ tags:
   - name: Health
   - name: Posts
   - name: Follows
+  - name: Likes
+  - name: Notifications
   - name: Timeline
 
 paths:
@@ -88,6 +90,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FollowingResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /posts/{postId}/like:
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        description: Target post identifier
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Likes]
+      operationId: likePost
+      summary: Like a post
+      responses:
+        '204':
+          description: Post liked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      tags: [Likes]
+      operationId: unlikePost
+      summary: Unlike a post
+      responses:
+        '204':
+          description: Post unliked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: getNotifications
+      summary: Get notifications for the current user
+      responses:
+        '200':
+          description: Notifications for the current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -246,6 +299,48 @@ components:
           items:
             type: string
             format: uuid
+
+    NotificationsResponse:
+      type: object
+      required: [notifications]
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+
+    Notification:
+      type: object
+      required: [id, type, actor, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [follow, like]
+        actor:
+          $ref: '#/components/schemas/NotificationActor'
+        postId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationActor:
+      type: object
+      required: [id, handle, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+          example: sho_sato
+        displayName:
+          type: string
+          example: 佐藤翔
 
     TimelineResponse:
       type: object

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { likePost, unlikePost } from '../api/likes'
 import { createPost } from '../api/posts'
 import { fetchTimeline, TimelineFeed } from '../api/timeline'
 import { Composer } from '../components/Composer'
@@ -60,7 +61,10 @@ export function TimelinePage() {
       setIsPublishing(false)
     }
   }
-  const toggleLike = (id: string) =>
+  const toggleLike = async (id: string) => {
+    const target = posts.find((post) => post.id === id)
+    if (!target) return
+
     setPosts((current) =>
       current.map((post) =>
         post.id === id
@@ -68,6 +72,21 @@ export function TimelinePage() {
           : post,
       ),
     )
+    try {
+      if (target.liked) {
+        await unlikePost(id)
+      } else {
+        await likePost(id)
+      }
+    } catch {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: target.liked, likes: target.likes } : post,
+        ),
+      )
+      setTimelineError('いいね操作に失敗しました。時間をおいて再度お試しください。')
+    }
+  }
   return (
     <PageLayout>
       <div className="timeline">

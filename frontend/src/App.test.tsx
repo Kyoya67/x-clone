@@ -57,6 +57,30 @@ beforeEach(() => {
           ),
         )
       }
+      if (url === '/api/notifications') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              notifications: [
+                {
+                  id: 'notification-1',
+                  type: 'follow',
+                  actor: {
+                    id: '00000000-0000-0000-0000-000000000004',
+                    handle: 'sho_sato',
+                    displayName: '佐藤 翔',
+                  },
+                  createdAt: '2026-09-09T00:00:00Z',
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+      }
+      if (url.endsWith('/like')) {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
       return Promise.resolve(
         new Response(JSON.stringify({ userIds: [] }), {
           status: 200,
@@ -107,6 +131,13 @@ describe('App routes', () => {
     expect(
       screen.queryByText('ユーザーのプロフィールとポストを表示します。'),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows notifications from the API', async () => {
+    window.history.pushState({}, '', '/notifications')
+    render(<App />)
+
+    expect(await screen.findByText(/さんがあなたをフォローしました。/)).toBeInTheDocument()
   })
 
   it('shows the account menu and logs out from the current account', async () => {
