@@ -9,15 +9,6 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
       - '.github/workflows/backend-cd.yml'
-  push:
-    branches:
-      - develop
-      - main
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-      - '.github/workflows/backend-cd.yml'
-
 jobs:
   check:
     runs-on: ubuntu-latest

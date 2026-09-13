@@ -197,20 +197,18 @@ AWSリソース構成、セキュリティグループ、IAM、DBユーザー、
 
 ### 全体方針
 
-CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行し、CDはCI workflowの成功後に起動する。これにより、CIが失敗したcommitをデプロイしない。
+CIはPull Request更新時に実行し、CDはPull Requestがmergeされてdevelop/mainへpushされた時に実行する。PR上でCIを必須にすることで、CIが失敗した変更をmergeしない運用にする。
 
 | Workflow | 起動条件 | 主な処理 |
 | -------- | -------- | -------- |
-| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request、develop/mainへのpush | frontendのformat:check・test・build |
-| .github/workflows/backend-ci.yml | backend変更を含むPull Request、develop/mainへのpush | backendのgofmt・go test・go vet |
-| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
-| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request | frontendのformat:check・test・build |
+| .github/workflows/backend-ci.yml | backend変更を含むPull Request | backendのgofmt・go test・go vet |
+| .github/workflows/frontend-cd.yml | frontend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | backend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
 
 ### 環境切り替え
 
-developはstg環境、mainはprd環境へデプロイする。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
-
-CDは`workflow_run`で起動するため、CD workflow自体はdefault branch上で実行される。環境判定に`github.ref_name`を使うとdevelop pushでもmain扱いになる可能性があるため、`workflow_run`では`github.event.workflow_run.head_branch`だけでstg/prdを判定する。手動実行時は`workflow_dispatch`の入力でstg/prdを明示選択する。
+developはstg環境、mainはprd環境へデプロイする。CDはdevelop/mainへのpushで起動するため、環境判定には`github.ref_name`を使う。手動実行時は`workflow_dispatch`の入力でstg/prdを明示選択する。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
 
 | 種別 | 名前 | 用途 |
 | ---- | ---- | ---- |
@@ -253,7 +251,7 @@ backend CDでは、DockerfileからAPI用イメージとマイグレーション
 イメージ作成後は、マイグレーション実行とAPIタスク定義登録を並行実行する。両方が成功してからECSサービスを更新する。
 
 ```text
-Backend CI成功
+develop/mainへbackend変更をmerge
   ↓
 build-images
   ↓
