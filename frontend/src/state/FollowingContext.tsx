@@ -1,29 +1,25 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
 import { fetchFollowingUserIDs, followUser, unfollowUser } from '../api/follows'
-import { findUserByHandle, findUserByID } from '../data/users'
 
 type FollowingContextValue = {
-  followingHandles: string[]
-  toggleFollowing: (handle: string) => Promise<void>
-  isFollowing: (handle: string) => boolean
-  isUpdating: (handle: string) => boolean
+  followingUserIDs: string[]
+  toggleFollowing: (userID: string) => Promise<void>
+  isFollowing: (userID: string) => boolean
+  isUpdating: (userID: string) => boolean
   error: string
 }
 const FollowingContext = createContext<FollowingContextValue | null>(null)
 
 export function FollowingProvider({ children }: { children: ReactNode }) {
-  const [followingHandles, setFollowingHandles] = useState<string[]>([])
-  const [updatingHandles, setUpdatingHandles] = useState<string[]>([])
+  const [followingUserIDs, setFollowingUserIDs] = useState<string[]>([])
+  const [updatingUserIDs, setUpdatingUserIDs] = useState<string[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
     const loadFollowing = async () => {
       try {
         const userIDs = await fetchFollowingUserIDs()
-        const handles = userIDs
-          .map((userID) => findUserByID(userID)?.handle)
-          .filter((handle): handle is string => handle !== undefined)
-        setFollowingHandles(handles)
+        setFollowingUserIDs(userIDs)
       } catch {
         setError('フォロー状態の取得に失敗しました。時間をおいて再度お試しください。')
       }
@@ -32,34 +28,33 @@ export function FollowingProvider({ children }: { children: ReactNode }) {
     void loadFollowing()
   }, [])
 
-  const toggleFollowing = async (handle: string) => {
-    const user = findUserByHandle(handle)
-    if (!user || updatingHandles.includes(handle)) return
+  const toggleFollowing = async (userID: string) => {
+    if (updatingUserIDs.includes(userID)) return
 
-    const following = followingHandles.includes(handle)
+    const following = followingUserIDs.includes(userID)
     setError('')
-    setUpdatingHandles((current) => [...current, handle])
+    setUpdatingUserIDs((current) => [...current, userID])
     try {
       if (following) {
-        await unfollowUser(user.id)
-        setFollowingHandles((current) => current.filter((item) => item !== handle))
+        await unfollowUser(userID)
+        setFollowingUserIDs((current) => current.filter((item) => item !== userID))
       } else {
-        await followUser(user.id)
-        setFollowingHandles((current) => [...current, handle])
+        await followUser(userID)
+        setFollowingUserIDs((current) => [...current, userID])
       }
     } catch {
       setError('フォロー操作に失敗しました。時間をおいて再度お試しください。')
     } finally {
-      setUpdatingHandles((current) => current.filter((item) => item !== handle))
+      setUpdatingUserIDs((current) => current.filter((item) => item !== userID))
     }
   }
 
-  const isFollowing = (handle: string) => followingHandles.includes(handle)
-  const isUpdating = (handle: string) => updatingHandles.includes(handle)
+  const isFollowing = (userID: string) => followingUserIDs.includes(userID)
+  const isUpdating = (userID: string) => updatingUserIDs.includes(userID)
 
   return (
     <FollowingContext.Provider
-      value={{ followingHandles, toggleFollowing, isFollowing, isUpdating, error }}
+      value={{ followingUserIDs, toggleFollowing, isFollowing, isUpdating, error }}
     >
       {children}
     </FollowingContext.Provider>

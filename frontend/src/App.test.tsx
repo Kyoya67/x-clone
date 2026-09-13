@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -147,6 +147,23 @@ describe('App routes', () => {
     expect(
       screen.queryByText('ユーザーのプロフィールとポストを表示します。'),
     ).not.toBeInTheDocument()
+  })
+
+  it('follows the selected profile user instead of a fixed user', async () => {
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/users/sho_sato')
+    render(<App />)
+
+    await screen.findByText('佐藤さんの投稿です。')
+    const profileCard = screen
+      .getByText('小さく試して、学びながら開発しています。')
+      .closest('.profile-card')
+    if (!profileCard) throw new Error('profile card was not found')
+    await user.click(within(profileCard as HTMLElement).getByRole('button', { name: 'フォロー' }))
+
+    expect(fetch).toHaveBeenCalledWith('/api/users/00000000-0000-0000-0000-000000000004/follow', {
+      method: 'PUT',
+    })
   })
 
   it('shows notifications from the API', async () => {

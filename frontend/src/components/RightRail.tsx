@@ -45,11 +45,11 @@ export function RightRail() {
                 </NavLink>
                 <button
                   type="button"
-                  className={`follow-button ${isFollowing(user.handle) ? 'following' : ''}`}
-                  disabled={isUpdating(user.handle)}
-                  onClick={() => void toggleFollowing(user.handle)}
+                  className={`follow-button ${isFollowing(user.id) ? 'following' : ''}`}
+                  disabled={isUpdating(user.id)}
+                  onClick={() => void toggleFollowing(user.id)}
                 >
-                  {isFollowing(user.handle) ? 'フォロー中' : 'フォロー'}
+                  {isFollowing(user.id) ? 'フォロー中' : 'フォロー'}
                 </button>
               </div>
             )
