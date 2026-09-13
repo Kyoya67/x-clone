@@ -68,7 +68,7 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
 外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
 TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
-ALB・ACM・DNSの定義はmodules/alb、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
+ホストゾーンはmodules/route53、ALB・ACM・DNSレコードはmodules/alb、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
 APIのパスは/health・/postsなどをそのまま転送し、/apiの除去は後続のAmplify設定で対応する。
 
 反映時はstgで次を実行し、既存リソースの不要な削除・再作成がないことをplanで確認する。

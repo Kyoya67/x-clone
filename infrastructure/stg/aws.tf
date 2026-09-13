@@ -1,48 +1,3 @@
-module "amplify" {
-  source = "../modules/amplify"
-
-  name        = "x-clone"
-  branch_name = "stg"
-  tags        = local.common_tags
-}
-
-output "amplify_app_id" {
-  value = module.amplify.app_id
-}
-
-output "amplify_url" {
-  value = module.amplify.url
-}
-
-import {
-  to = aws_route53_zone.stg
-  id = "Z09299891GO4ZKLM27GGG"
-}
-
-resource "aws_route53_zone" "stg" {
-  name    = "stg.x-clone.kyo8.dev"
-  comment = ""
-  tags    = local.common_tags
-}
-
-module "alb" {
-  source = "../modules/alb"
-
-  name              = "api"
-  vpc_id            = module.vpc.id
-  public_subnet_ids = module.subnet.public_ids
-  security_group_id = module.security_group.api_alb_id
-  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
-  hosted_zone_id    = aws_route53_zone.stg.zone_id
-  tags              = local.common_tags
-
-  depends_on = [module.route_table]
-}
-
-output "api_url" {
-  value = module.alb.api_url
-}
-
 module "vpc" {
   source     = "../modules/vpc"
   cidr_block = "10.0.0.0/16"
@@ -61,6 +16,13 @@ module "subnet" {
   tags = local.common_tags
 }
 
+module "internet_gateway" {
+  source = "../modules/internet_gateway"
+
+  vpc_id = module.vpc.id
+  tags   = local.common_tags
+}
+
 module "route_table" {
   source = "../modules/route_table"
 
@@ -72,11 +34,11 @@ module "route_table" {
   tags                     = local.common_tags
 }
 
-module "internet_gateway" {
-  source = "../modules/internet_gateway"
+module "route53" {
+  source = "../modules/route53"
 
-  vpc_id = module.vpc.id
-  tags   = local.common_tags
+  name = "stg.x-clone.kyo8.dev"
+  tags = local.common_tags
 }
 
 module "security_group" {
@@ -87,16 +49,18 @@ module "security_group" {
   tags                = local.common_tags
 }
 
-module "iam" {
-  source = "../modules/iam"
+module "alb" {
+  source = "../modules/alb"
 
-  repository_arn           = module.ecr.api_arn
-  log_group_arn            = module.cloudwatch_logs.arn
-  database_secret_arn      = module.secrets_manager.app_user_secret_arn
-  migration_repository_arn = module.ecr.db_migrator_arn
-  migration_log_group_arn  = module.migration_logs.arn
-  migration_secret_arn     = module.secrets_manager.migration_user_secret_arn
-  tags                     = local.common_tags
+  name              = "api"
+  vpc_id            = module.vpc.id
+  public_subnet_ids = module.subnet.public_ids
+  security_group_id = module.security_group.api_alb_id
+  domain_name       = "api-v1.stg.x-clone.kyo8.dev"
+  hosted_zone_id    = module.route53.zone_id
+  tags              = local.common_tags
+
+  depends_on = [module.route_table]
 }
 
 module "secrets_manager" {
@@ -115,6 +79,26 @@ module "secrets_manager" {
     name = "db/migration_user"
   }
   tags = local.common_tags
+}
+
+module "iam" {
+  source = "../modules/iam"
+
+  repository_arn           = module.ecr.api_arn
+  log_group_arn            = module.cloudwatch_logs.arn
+  database_secret_arn      = module.secrets_manager.app_user_secret_arn
+  migration_repository_arn = module.ecr.db_migrator_arn
+  migration_log_group_arn  = module.migration_logs.arn
+  migration_secret_arn     = module.secrets_manager.migration_user_secret_arn
+  tags                     = local.common_tags
+}
+
+module "amplify" {
+  source = "../modules/amplify"
+
+  name        = "x-clone"
+  branch_name = "stg"
+  tags        = local.common_tags
 }
 
 module "ec2" {
