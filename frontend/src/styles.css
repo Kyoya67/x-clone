@@ -342,6 +342,11 @@ button {
   background: var(--surface-hover);
 }
 
+.tab:focus,
+.tab:focus-visible {
+  outline: none;
+}
+
 .tab.active {
   color: var(--text);
 }

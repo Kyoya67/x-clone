@@ -12,6 +12,7 @@ export function TimelineHeader({ activeTab, onTabChange }: TimelineHeaderProps) 
             onClick={() => onTabChange(tab)}
             role="tab"
             aria-selected={activeTab === tab}
+            tabIndex={-1}
           >
             {tab}
           </button>

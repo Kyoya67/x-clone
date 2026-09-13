@@ -6,9 +6,15 @@ import { Composer } from '../components/Composer'
 import { Feed } from '../components/Feed'
 import { PageLayout } from '../components/PageLayout'
 import { TimelineHeader } from '../components/TimelineHeader'
+import { currentUser } from '../config/currentUser'
+import { useOptionalAuth } from '../state/AuthContext'
 import { Post } from '../types/post'
 
 export function TimelinePage() {
+  const auth = useOptionalAuth()
+  const user = auth?.user
+  const displayName = user?.displayName ?? currentUser.displayName
+  const avatar = displayName.slice(0, 1) || 'U'
   const [posts, setPosts] = useState<Post[]>([])
   const [draft, setDraft] = useState('')
   const [activeTab, setActiveTab] = useState('おすすめ')
@@ -91,7 +97,7 @@ export function TimelinePage() {
     <PageLayout>
       <div className="timeline">
         <TimelineHeader activeTab={activeTab} onTabChange={setActiveTab} />
-        <Composer draft={draft} onDraftChange={setDraft} onPublish={publish} />
+        <Composer avatar={avatar} draft={draft} onDraftChange={setDraft} onPublish={publish} />
         {publishError && <p role="alert">{publishError}</p>}
         {timelineError && <p role="alert">{timelineError}</p>}
         {isLoading ? (
