@@ -1,6 +1,6 @@
 # Infrastructure
 
-AWS上にstg環境のアプリケーション基盤を構築するTerraformコードです。
+AWS上にアプリケーション基盤を構築するTerraformコードです。
 
 ## ディレクトリ構成
 
@@ -21,17 +21,22 @@ infrastructure/
 │   ├── rds/
 │   ├── secrets_manager/
 │   └── cloudwatch_logs/
-└── stg/                   # stg環境のTerraform root module
+├── stg/                   # stg環境のTerraform root module
+│   ├── aws.tf
+│   ├── backend.tf
+│   ├── variable.tf
+│   ├── version.tf
+│   ├── Makefile
+│   └── .env.example
+└── prd/                   # prd環境のTerraform root module
     ├── aws.tf
     ├── backend.tf
     ├── variable.tf
     ├── version.tf
-    ├── subnet_moves.tf
-    ├── Makefile
-    └── .env.example
+    └── import.tf
 `````
 
-環境ごとにTerraform root moduleを分ける。現在は`stg/`のみ。将来production環境を作る場合は、`prd/`を追加して`modules/`を再利用する。
+環境ごとにTerraform root moduleを分ける。`stg/`と`prd/`で`modules/`を再利用する。
 
 ## 使用技術
 
@@ -121,12 +126,27 @@ make migration-ecr-push
 
 ## ECSへのイメージ反映
 
-ECRへpushしたイメージタグを`infrastructure/stg/aws.tf`へ反映し、ECSタスク定義とECSサービスを更新します。
+初回構築時は、ECRへpush済みの実在するイメージタグを各環境の`aws.tf`へ反映し、ECSタスク定義とECSサービスを作成します。
 
 `````bash
 cd infrastructure/stg
 make apply
 `````
+
+`````bash
+cd infrastructure/prd
+AWS_PROFILE=x-clone-terraform-prd make apply
+`````
+
+初回以降のイメージタグ更新はGitHub Actions CDが行います。Terraform側ではECSタスク定義の`container_definitions`を`ignore_changes`にしているため、CDが反映したcommit SHAのイメージタグを、後続のTerraform applyで古いタグへ戻さない構成です。
+
+そのため、初回構築時だけは次の順序にします。
+
+1. TerraformでECRなどの土台を作成する
+2. APIとdb-migratorのDockerイメージをECRへpushする
+3. push済みの実在タグを`aws.tf`のECSタスク定義imageへ入れる
+4. Terraform applyでECSタスク定義・ECSサービスを作成する
+5. 以降のイメージタグ更新はCDに任せる
 
 APIはECSサービスで常時起動します。マイグレーションはECSサービスではなく、必要なときだけ単発タスクとして起動します。
 
