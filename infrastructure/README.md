@@ -58,7 +58,7 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 - 存在するusers・posts・followsのデータを取得・追加・更新・削除する（SELECT・INSERT・UPDATE・DELETE）。
 - テーブルの作成・構造変更・削除は行わない。
 
-### 初期設定
+### DBユーザー登録の初期設定
 
 ```mermaid
 sequenceDiagram
@@ -79,6 +79,14 @@ sequenceDiagram
   CMD->>RDS: 5. SSM転送経由でdbadminとしてTLS接続<br/>app_user・migration_userを作成、権限を設定
   CMD->>SM: 6. 各ユーザー名・パスワードを<br/>db/app_user・db/migration_userへ保存
 ```
+
+実行するファイルと順序：
+
+| 順序 | 実行するもの | 役割 |
+| ---- | ------------ | ---- |
+| 1 | infrastructure/stg の Terraform | db/dbadmin・db/app_user・db/migration_userのSecret、RDS、IAMなどを作成する |
+| 2 | backend/scripts/db-tunnel.sh | SSMポート転送で、開発者PCの127.0.0.1:15432からRDSへ到達できる経路を作る |
+| 3 | backend/cmd/db-user/main.go | dbadminでRDSへ接続し、app_user・migration_userの作成、migrationスキーマ、default privilegesを設定する |
 
 ### migration_user:マイグレーション（現在の手動起動と将来のCI/CD）
 
@@ -143,8 +151,6 @@ flowchart LR
 ```
 
 `cmd/db-user`は、RDSへ直接接続せず、ローカルの`127.0.0.1:15432`へ接続する。その通信をSSMがnat-instance経由でRDSへ転送する。
-
-接続先の差し替えとTLS検証の詳細は、[DBトンネル接続](../backend/docs/db-tunnel.md)を参照。
 
 ## 6. 残りの対応
 
