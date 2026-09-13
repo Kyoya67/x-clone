@@ -98,6 +98,7 @@ module "amplify" {
 
   name        = "x-clone"
   branch_name = "stg"
+  api_url     = module.alb.api_url
   tags        = local.common_tags
 }
 

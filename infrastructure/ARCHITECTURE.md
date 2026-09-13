@@ -10,8 +10,10 @@
 | Amplifyブランチ | stg | Git連携なしでビルド成果物を手動アップロードする配信先 |
 | ビルド | ローカルのfrontend | npm ci・npm run buildを実行し、distの中身をZIP化 |
 | リライト | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応 |
+| API転送（定義追加・未検証） | /api/<*> → https://api-v1.stg.x-clone.kyo8.dev/<*> | /apiを除去してHTTPSで転送。SPAルールより先に評価 |
 
-Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはamplify_urlから取得する。
+Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはAmplifyコンソールのstgブランチで確認する。
+転送先はmodule.alb.api_urlから渡す。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。
 
 #### 作成と手動デプロイ
 
@@ -19,13 +21,13 @@ Terraform定義はmodules/amplify、呼び出しはstg/aws.tf。公開URLはampl
 2. frontendでnpm ci、npm run buildを実行する。
 3. distの中身をZIPにする。ZIP直下にindex.htmlとassetsを配置し、distフォルダ自体は含めない。
 4. Amplifyコンソールで既存のx-cloneアプリのstgブランチにZIPをアップロードする。新しいアプリは作成しない。
-5. デプロイ成功後、terraform output -raw amplify_urlのURLで画面を確認する。
+5. デプロイ成功後、Amplifyコンソールのstg公開URLで画面を確認する。
 
 今回のPRは公開・疎通確認を優先し、GitHub連携とCDは後続で対応する。GitHub App・PATは不要。フロント更新時はビルドとアップロードを繰り返し、インフラ設定を変える場合のみapplyする。
 
 #### 残作業（Issue #27）
 
-- APIのHTTPS公開経路のapply・実環境検証と、Amplifyの/api転送設定。Viteの開発用プロキシはAmplify上では動かない。
+- Amplifyの/api転送設定のapply・実環境検証。公開URLの/api/health、一覧取得のクエリ、投稿・フォローの送信と再取得を確認する。
 - 独自ドメインstg.x-clone.kyo8.devの関連付けとDNS設定。
 - 公開画面からAPI・RDSへの読み書き確認。Amplify作成だけでは疎通完了としない。
 
@@ -33,14 +35,14 @@ AmplifyではSPA配信のみを行い、DBの認証情報やAWS操作権限は�
 
 ### VPC・サブネットとリソース配置
 
-ALBはTerraform定義を追加済み。実環境への反映・HTTPS疎通は未確認。
+ALBは実環境へ反映済み。APIドメインの/healthでHTTPS応答を確認済み。
 
 VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
 | VPC内のサブネット | CIDR          | 現在配置されているリソース                        |
 | ----------------- | ------------- | ------------------------------------------------- |
-| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api（追加予定） |
-| ├ public-1c       | 10.0.64.0/18  | ALB api（追加予定。同じALBを2つのAZに配置） |
+| ├ public-1a       | 10.0.0.0/18   | NATインスタンス（EC2）、ALB api |
+| ├ public-1c       | 10.0.64.0/18  | ALB api（同じALBを2つのAZに配置） |
 | ├ private-1a      | 10.0.128.0/18 | APIのECSタスク、RDS（app-db）                     |
 | └ private-1c      | 10.0.192.0/18 | なし                                              |
 
@@ -49,12 +51,12 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 | AWSリソース       | セキュリティグループ名 | 用途                      | インバウンドルール                                                                                              | アウトバウンドルール                  |
 | ----------------- | ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | EC2：nat-instance | nat-instance           | 外向き通信・SSM接続の中継 | 10.0.128.0/18・10.0.192.0/18から全プロトコル許可<br>EC2 Instance ConnectのAWS管理プレフィックスリストからTCP 22 | 0.0.0.0/0へ全プロトコル許可           |
-| ALB：api（追加予定） | api-alb | APIのHTTPS公開 | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送） | api SGへTCP 8080 |
-| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080（追加予定）<br>nat-instance SGからTCP 8080（手動API確認） | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
+| ALB：api | api-alb | APIのHTTPS公開 | 0.0.0.0/0からTCP 80・443（80はHTTPSへ転送） | api SGへTCP 8080 |
+| ECS：api          | api                    | APIサーバー               | api-alb SGからTCP 8080<br>nat-instance SGからTCP 8080（手動API確認） | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | ECS：db-migrator  | db-migrator            | DBマイグレーション        | なし                                                                                                            | db SGへTCP 5432<br>0.0.0.0/0へTCP 443 |
 | RDS：app-db       | db                     | PostgreSQL                | api・db-migrator・nat-instance SGからTCP 5432                                                                   | なし（許可済み接続への応答は可能）    |
 
-### APIのHTTPS公開（Terraform定義追加・実環境未検証）
+### APIのHTTPS公開
 
 | 構成要素 | 設定 |
 | --- | --- |
@@ -69,7 +71,7 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
 TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
 ホストゾーンはmodules/route53、ALB・ACM・DNSレコードはmodules/alb、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
-APIのパスは/health・/postsなどをそのまま転送し、/apiの除去は後続のAmplify設定で対応する。
+ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplifyのリライトで行う。
 
 反映時はstgで次を実行し、既存リソースの不要な削除・再作成がないことをplanで確認する。
 
