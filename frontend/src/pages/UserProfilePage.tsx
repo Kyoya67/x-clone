@@ -6,6 +6,7 @@ import { ContentPage } from './ContentPage'
 import { useFollowing } from '../state/FollowingContext'
 import { findUserByHandle, User } from '../data/users'
 import { Post } from '../types/post'
+import { avatarColorClass } from '../utils/avatarColor'
 
 export function UserProfilePage() {
   const { handle = 'unknown' } = useParams()
@@ -70,7 +71,9 @@ export function UserProfilePage() {
   return (
     <ContentPage title="プロフィール">
       <div className="profile-card">
-        <span className={`avatar avatar-blue profile-avatar ${user?.avatarClass ?? ''}`}>
+        <span
+          className={`avatar ${user?.avatarClass ?? avatarColorClass(user?.id ?? displayHandle)} profile-avatar`}
+        >
           {user?.avatar ?? '?'}
         </span>
         <h2>{displayName}</h2>

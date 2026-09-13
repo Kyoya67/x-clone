@@ -5,6 +5,7 @@ import { ContentPage } from './ContentPage'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
 import { Post } from '../types/post'
+import { avatarColorClass } from '../utils/avatarColor'
 
 export function ProfilePage() {
   const auth = useOptionalAuth()
@@ -13,6 +14,7 @@ export function ProfilePage() {
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const bio = user?.bio ?? currentUser.bio
   const avatar = displayName.slice(0, 1) || 'U'
+  const avatarClass = avatarColorClass(user?.id ?? user?.handle ?? currentUser.id)
   const [form, setForm] = useState({ handle, displayName, bio })
   const [message, setMessage] = useState('')
   const [isEditing, setIsEditing] = useState(user?.needsProfileSetup ?? false)
@@ -92,7 +94,7 @@ export function ProfilePage() {
   return (
     <ContentPage title="プロフィール">
       <div className="profile-card">
-        <span className="avatar avatar-blue profile-avatar">{avatar}</span>
+        <span className={`avatar ${avatarClass} profile-avatar`}>{avatar}</span>
         {isEditing ? (
           <form className="profile-form" onSubmit={saveProfile}>
             <label>

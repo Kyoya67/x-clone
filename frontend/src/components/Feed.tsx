@@ -19,7 +19,7 @@ export function Feed({
 
         return (
           <article className="post" key={post.id}>
-            <span className="avatar avatar-blue">{post.avatar}</span>
+            <span className={`avatar ${post.avatarClass ?? 'avatar-blue'}`}>{post.avatar}</span>
             <div className="post-content">
               <div className="post-meta">
                 <NavLink className="post-author" to={profilePath}>

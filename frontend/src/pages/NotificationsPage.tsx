@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchNotifications, Notification } from '../api/notifications'
 import { ContentPage } from './ContentPage'
+import { avatarColorClass } from '../utils/avatarColor'
 
 export function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -42,7 +43,9 @@ export function NotificationsPage() {
       ) : (
         notifications.map((notification) => (
           <div className="notification-item" key={notification.id}>
-            <span className="avatar avatar-blue">{notification.actor.displayName.slice(0, 1)}</span>
+            <span className={`avatar ${avatarColorClass(notification.actor.id)}`}>
+              {notification.actor.displayName.slice(0, 1)}
+            </span>
             <p>
               <strong>{notification.actor.displayName}</strong>
               {notification.type === 'follow'

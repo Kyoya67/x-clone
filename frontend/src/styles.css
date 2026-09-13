@@ -304,6 +304,18 @@ button {
   background: linear-gradient(135deg, #00ba7c, #0891b2);
 }
 
+.avatar-orange {
+  background: linear-gradient(135deg, #ff7a00, #ffd400);
+}
+
+.avatar-purple {
+  background: linear-gradient(135deg, #7856ff, #bf5af2);
+}
+
+.avatar-cyan {
+  background: linear-gradient(135deg, #00c2ff, #00ba7c);
+}
+
 .timeline {
   min-height: 100vh;
 }

@@ -4,6 +4,7 @@ import { fetchNotifications } from '../api/notifications'
 import { Icon } from './Icon'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
+import { avatarColorClass } from '../utils/avatarColor'
 
 type Theme = 'light' | 'dark'
 
@@ -20,6 +21,7 @@ export function Sidebar() {
   const displayName = user?.displayName ?? currentUser.displayName
   const handle = user?.handle ?? currentUser.handle.replace(/^@/, '')
   const avatar = displayName.slice(0, 1) || 'U'
+  const avatarClass = avatarColorClass(user?.id ?? user?.handle ?? currentUser.id)
 
   useEffect(() => {
     let cancelled = false
@@ -116,7 +118,7 @@ export function Sidebar() {
           aria-expanded={isAccountMenuOpen}
           onClick={() => setIsAccountMenuOpen((current) => !current)}
         >
-          <span className="avatar avatar-blue">{avatar}</span>
+          <span className={`avatar ${avatarClass}`}>{avatar}</span>
           <span className="account-copy">
             <strong>{displayName}</strong>
             <small>@{handle}</small>
