@@ -72,8 +72,13 @@ export function Sidebar() {
       >
         ポストする
       </button>
-      <button className="theme-toggle" type="button" onClick={() => setTheme(nextTheme)}>
-        {nextTheme === 'dark' ? 'ダークモード' : 'ライトモード'}
+      <button
+        className="theme-toggle"
+        type="button"
+        aria-label={nextTheme === 'dark' ? 'ダークモード' : 'ライトモード'}
+        onClick={() => setTheme(nextTheme)}
+      >
+        <Icon name={nextTheme === 'dark' ? 'moon' : 'sun'} />
       </button>
       <div className="account-menu" ref={accountMenuRef}>
         {isAccountMenuOpen && (

@@ -1,4 +1,4 @@
-export type IconName = 'home' | 'search' | 'bell' | 'chat' | 'profile' | 'more'
+export type IconName = 'home' | 'search' | 'bell' | 'chat' | 'profile' | 'more' | 'moon' | 'sun'
 
 export function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
@@ -8,6 +8,8 @@ export function Icon({ name }: { name: IconName }) {
     chat: 'M20 11.5a8 8 0 0 1-8 8 8.6 8.6 0 0 1-3.3-.65L4 20l1.15-4.3A8 8 0 1 1 20 11.5Z',
     profile: 'M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
     more: 'M5 12h.01M12 12h.01M19 12h.01',
+    moon: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z',
+    sun: 'M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07l-1.41 1.41M20.48 3.52l-1.41 1.41M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z',
   }
   return (
     <svg

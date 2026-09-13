@@ -158,17 +158,27 @@ button {
 }
 
 .theme-toggle {
+  align-items: center;
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 999px;
+  box-shadow: 0 4px 16px rgb(15 20 25 / 10%);
   color: var(--text);
-  font-size: 14px;
-  font-weight: 800;
-  margin: 0 0 12px;
-  padding: 10px 14px;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  margin: 0 8px 12px auto;
+  width: 44px;
 }
 
 .theme-toggle:hover {
   background: var(--surface-hover);
+  color: var(--brand);
+}
+
+.theme-toggle .icon {
+  height: 22px;
+  width: 22px;
 }
 
 .account-menu {
