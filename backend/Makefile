@@ -10,7 +10,6 @@ DB_LOCAL_PORT ?= 15432
 DB_LOCAL_FORWARD_ENDPOINT ?= 127.0.0.1:$(DB_LOCAL_PORT)
 db-user db-tunnel: export AWS_PROFILE ?= x-clone-terraform-stg
 db-user db-tunnel: export AWS_REGION ?= ap-northeast-1
-db-tunnel: export NAT_INSTANCE_ID ?= i-03653ea01d0f54ffa
 db-tunnel: export DB_LOCAL_PORT := $(DB_LOCAL_PORT)
 
 # ECS単発タスクを起動し、終了コードまで確認する。SSM転送は不要。
