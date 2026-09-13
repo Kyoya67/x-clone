@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/models"
@@ -24,18 +25,22 @@ func (r *UserRepository) FindOrCreateByOIDC(ctx context.Context, subject, email,
 
 	var user models.User
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO users (id, oidc_subject, email, handle, display_name, bio)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, '')
+		INSERT INTO users (id, oidc_subject, email, handle, display_name, bio, profile_completed)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, '', FALSE)
 		ON CONFLICT (oidc_subject) DO UPDATE
 		SET email = EXCLUDED.email,
-		    display_name = EXCLUDED.display_name
-		RETURNING id, handle, display_name, bio, created_at
+		    display_name = CASE
+		        WHEN users.profile_completed THEN users.display_name
+		        ELSE EXCLUDED.display_name
+		    END
+		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed
 	`, subject, email, handle, displayName).Scan(
 		&user.ID,
 		&user.Handle,
 		&user.DisplayName,
 		&user.Bio,
 		&user.CreatedAt,
+		&user.NeedsProfileSetup,
 	)
 	if err != nil {
 		return models.User{}, classifyPostgresError(err)
@@ -46,10 +51,34 @@ func (r *UserRepository) FindOrCreateByOIDC(ctx context.Context, subject, email,
 func (r *UserRepository) FindByID(ctx context.Context, id string) (models.User, error) {
 	var user models.User
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, handle, display_name, bio, created_at
+		SELECT id, handle, display_name, bio, created_at, NOT profile_completed
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&user.ID, &user.Handle, &user.DisplayName, &user.Bio, &user.CreatedAt)
+	`, id).Scan(&user.ID, &user.Handle, &user.DisplayName, &user.Bio, &user.CreatedAt, &user.NeedsProfileSetup)
+	if err != nil {
+		return models.User{}, classifyPostgresError(err)
+	}
+	return user, nil
+}
+
+func (r *UserRepository) UpdateProfile(ctx context.Context, id string, request models.UpdateUserProfileRequest) (models.User, error) {
+	var user models.User
+	err := r.db.QueryRowContext(ctx, `
+		UPDATE users
+		SET handle = $2,
+		    display_name = $3,
+		    bio = $4,
+		    profile_completed = TRUE
+		WHERE id = $1
+		RETURNING id, handle, display_name, bio, created_at, NOT profile_completed
+	`, id, request.Handle, request.DisplayName, request.Bio).Scan(
+		&user.ID,
+		&user.Handle,
+		&user.DisplayName,
+		&user.Bio,
+		&user.CreatedAt,
+		&user.NeedsProfileSetup,
+	)
 	if err != nil {
 		return models.User{}, classifyPostgresError(err)
 	}
@@ -72,5 +101,9 @@ func handleFromOIDC(subject, email string) string {
 	if len(suffix) > 8 {
 		suffix = suffix[:8]
 	}
-	return string(cleaned) + "_" + suffix
+	handle := fmt.Sprintf("user_%s", suffix)
+	if len(handle) > 13 {
+		return handle[:13]
+	}
+	return handle
 }

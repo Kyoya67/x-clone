@@ -33,6 +33,7 @@ CMD ["--action", "status"]
 FROM scratch AS app
 WORKDIR /app
 COPY --from=build /tmp/rds-ca-bundle.pem /app/certs/rds-ca-bundle.pem
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/api /app/api
 COPY --from=build /out/healthcheck /app/healthcheck
 COPY --from=build /src/openapi/openapi.yaml /app/openapi/openapi.yaml

@@ -197,18 +197,18 @@ AWSリソース構成、セキュリティグループ、IAM、DBユーザー、
 
 ### 全体方針
 
-CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行し、CDはCI workflowの成功後に起動する。これにより、CIが失敗したcommitをデプロイしない。
+CIはPull Request更新時に実行し、CDはPull Requestがmergeされてdevelop/mainへpushされた時に実行する。PR上でCIを必須にすることで、CIが失敗した変更をmergeしない運用にする。
 
 | Workflow | 起動条件 | 主な処理 |
 | -------- | -------- | -------- |
-| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request、develop/mainへのpush | frontendのformat:check・test・build |
-| .github/workflows/backend-ci.yml | backend変更を含むPull Request、develop/mainへのpush | backendのgofmt・go test・go vet |
-| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
-| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後に自動起動。必要に応じて手動再実行も可能 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request | frontendのformat:check・test・build |
+| .github/workflows/backend-ci.yml | backend変更を含むPull Request | backendのgofmt・go test・go vet |
+| .github/workflows/frontend-cd.yml | frontend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | backend変更がdevelop/mainへpushされた時。必要に応じて手動実行も可能 | merge後のcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
 
 ### 環境切り替え
 
-developはstg環境、mainはprd環境へデプロイする。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
+developはstg環境、mainはprd環境へデプロイする。CDはdevelop/mainへのpushで起動するため、環境判定には`github.ref_name`を使う。手動実行時は`workflow_dispatch`の入力でstg/prdを明示選択する。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
 
 | 種別 | 名前 | 用途 |
 | ---- | ---- | ---- |
@@ -251,7 +251,7 @@ backend CDでは、DockerfileからAPI用イメージとマイグレーション
 イメージ作成後は、マイグレーション実行とAPIタスク定義登録を並行実行する。両方が成功してからECSサービスを更新する。
 
 ```text
-Backend CI成功
+develop/mainへbackend変更をmerge
   ↓
 build-images
   ↓
@@ -289,13 +289,18 @@ internal/models/ ─────── データモデル
 
 ### データベースの構成
 
-ユーザー、投稿、フォロー関係はそれぞれ1つのテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
+ユーザー、投稿、フォロー関係、いいね、通知はそれぞれテーブルで管理する。ユーザーごとにテーブルを作成するのではなく、`follows`テーブルの各行で「誰が誰をフォローしたか」を表す。
 
 ```mermaid
 erDiagram
     users ||--o{ posts : "author_id"
     users ||--o{ follows : "follower_id"
     users ||--o{ follows : "followee_id"
+    users ||--o{ post_likes : "user_id"
+    posts ||--o{ post_likes : "post_id"
+    users ||--o{ notifications : "recipient_id"
+    users ||--o{ notifications : "actor_id"
+    posts ||--o{ notifications : "post_id"
 
     users {
         UUID id PK
@@ -317,10 +322,27 @@ erDiagram
         UUID followee_id PK, FK
         TIMESTAMPTZ created_at
     }
+
+    post_likes {
+        UUID post_id PK, FK
+        UUID user_id PK, FK
+        TIMESTAMPTZ created_at
+    }
+
+    notifications {
+        UUID id PK
+        UUID recipient_id FK
+        UUID actor_id FK
+        VARCHAR type
+        UUID post_id FK
+        TIMESTAMPTZ created_at
+    }
 ```
 
 `follows`は、同じ`users`テーブルを2つの役割で参照する。たとえば田中が佐藤をフォローすると、`follower_id`は田中のID、`followee_id`は佐藤のIDとなる。`(follower_id, followee_id)`を複合主キーにすることで、同じユーザーを重複してフォローできない。また、`follower_id <> followee_id`の制約により、自分自身のフォローを防ぐ。
 
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
+
+いいねは`post_likes`で管理し、`(post_id, user_id)`を複合主キーにすることで同じ投稿への重複いいねを防ぐ。フォロー・いいねの発生時には`notifications`へ通知を保存する。通知は`recipient_id`が通知を受け取るユーザー、`actor_id`が操作したユーザーを表し、`type`で`follow`と`like`を区別する。現時点では通知の既読・未読は管理せず、通知一覧は自分宛ての通知を新しい順で取得する。
 
 ## 7. 今後の拡張性や運用を見据えた懸念点

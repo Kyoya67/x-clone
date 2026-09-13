@@ -66,6 +66,18 @@ func TestTimelineControllerListDefaultsToForYou(t *testing.T) {
 	}
 }
 
+func TestTimelineControllerListRequiresLogin(t *testing.T) {
+	controller := NewTimelineController(&fakeTimelineService{})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/timeline", nil)
+
+	controller.List(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	}
+}
+
 func TestTimelineControllerListReturnsServiceError(t *testing.T) {
 	controller := NewTimelineController(&fakeTimelineService{err: errors.New("secret database details")})
 	recorder := httptest.NewRecorder()

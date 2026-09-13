@@ -36,6 +36,7 @@
 - PRの対応内容・検証内容・後続対応は、関連Issueの目的・完了条件・次に残る課題と対応させる
 - 未実装の内容を、対応内容や検証内容に完了済みとして書かない
 - developからmainへマージするPRは、Milestone単位のリリースPRとして書く
+- 通常の機能追加・修正PRは、明示がない限りdevelopをマージ先にする
 - develop→main PRの本文は「概要」「対応Pull Request」「変更内容」「検証内容」の順で書く
 - develop→main PRの「対応Pull Request」には、そのMilestoneでdevelopへマージ済みの主要PRをIssue/機能単位で並べる
 - develop→main PRの「変更内容」は、個別commitではなくMilestone全体で実現したユーザー価値・アーキテクチャ変更・運用変更をまとめる
@@ -44,6 +45,9 @@
 ## バックエンド
 
 - Goのテストは、実装ファイルの責務単位で観点を分けて書く
+- Goの実装ファイルを追加または修正した場合は、原則として同じ責務単位のテストを追加・更新する
+- Goの実装ファイルを追加または修正した場合は、`backend/docs/go-testing.md`にテスト観点とカバレッジ計測結果を反映する
+- Goの実装ファイルを追加または修正した場合は、`go test ./...`、`go vet ./...`、該当パッケージの`go tool cover -func`を確認する
 - Controller層は依存先をFakeへ差し替え、HTTPリクエスト、レスポンス、ステータスコード、内部エラーを外へ漏らさないことを検証する
 - Service層はRepositoryをFakeへ差し替え、業務ルール、入力検証、Repositoryエラーの扱いを検証する
 - Repository層はsqlmockを使い、実DBへ接続せずにSQL、引数、DB結果のマッピング、DBエラーの扱いを検証する

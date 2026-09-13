@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,38 +29,47 @@ type AuthConfig struct {
 }
 
 type AuthController struct {
-	config     AuthConfig
-	httpClient *http.Client
-	users      UserService
-	now        func() time.Time
+	config        AuthConfig
+	httpClient    *http.Client
+	users         UserService
+	now           func() time.Time
+	randomToken   func() (string, error)
+	signSession   func(userID, secret string, now time.Time) (string, error)
+	verifyIDToken func(ctx context.Context, client *http.Client, token, issuer, audience, nonce string, now time.Time) (auth.IDTokenClaims, error)
 }
 
 type UserService interface {
 	FindOrCreateByOIDC(ctx context.Context, subject, email, displayName string) (models.User, error)
 	FindByID(ctx context.Context, id string) (models.User, error)
+	UpdateProfile(ctx context.Context, id string, request models.UpdateUserProfileRequest) (models.User, error)
 }
 
 func NewAuthController(config AuthConfig, users UserService) *AuthController {
 	return &AuthController{
-		config:     config,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		users:      users,
-		now:        time.Now,
+		config:        config,
+		httpClient:    &http.Client{Timeout: 10 * time.Second},
+		users:         users,
+		now:           time.Now,
+		randomToken:   auth.NewRandomToken,
+		signSession:   auth.SignSession,
+		verifyIDToken: auth.VerifyIDToken,
 	}
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
-	state, err := auth.NewRandomToken()
+	setAuthNoStore(w)
+
+	state, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	nonce, err := auth.NewRandomToken()
+	nonce, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	verifier, err := auth.NewRandomToken()
+	verifier, err := c.randomToken()
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
@@ -82,16 +93,25 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
 	state := r.URL.Query().Get("state")
 	code := r.URL.Query().Get("code")
-	if state == "" || code == "" || cookieValue(r, auth.StateCookieName) != state {
-		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(nil, "invalid authentication callback"))
+	stateCookie := cookieValue(r, auth.StateCookieName)
+	if state == "" || code == "" || stateCookie != state {
+		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
+			fmt.Errorf("callback validation failed: state=%t code=%t state_cookie=%t state_match=%t", state != "", code != "", stateCookie != "", stateCookie == state),
+			"invalid authentication callback",
+		))
 		return
 	}
 	nonce := cookieValue(r, auth.NonceCookieName)
 	verifier := cookieValue(r, auth.PKCECookieName)
 	if nonce == "" || verifier == "" {
-		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(nil, "invalid authentication callback"))
+		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
+			fmt.Errorf("callback temporary cookie missing: nonce=%t verifier=%t", nonce != "", verifier != ""),
+			"invalid authentication callback",
+		))
 		return
 	}
 
@@ -100,7 +120,7 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
 	}
-	claims, err := auth.VerifyIDToken(r.Context(), c.httpClient, token.IDToken, c.config.Issuer, c.config.ClientID, nonce, c.now())
+	claims, err := c.verifyIDToken(r.Context(), c.httpClient, token.IDToken, c.config.Issuer, c.config.ClientID, nonce, c.now())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(err, "invalid authentication token"))
 		return
@@ -110,7 +130,7 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		apperrors.ErrorHandler(w, r, err)
 		return
 	}
-	session, err := auth.SignSession(user.ID, c.config.SessionSecret, c.now())
+	session, err := c.signSession(user.ID, c.config.SessionSecret, c.now())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.DependencyUnavailable.Wrap(err, "authentication is temporarily unavailable"))
 		return
@@ -123,6 +143,8 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Me(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
 	userID, err := auth.UserID(r.Context())
 	if err != nil {
 		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
@@ -139,7 +161,36 @@ func (c *AuthController) Me(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *AuthController) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
+
+	userID, err := auth.UserID(r.Context())
+	if err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
+		return
+	}
+
+	var request models.UpdateUserProfileRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		apperrors.ErrorHandler(w, r, apperrors.ReqBodyDecodeFailed.Wrap(err, "request body must be valid JSON"))
+		return
+	}
+
+	user, err := c.users.UpdateProfile(r.Context(), userID, request)
+	if err != nil {
+		apperrors.ErrorHandler(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		apperrors.ErrorHandler(w, r, err)
+	}
+}
+
 func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
+	setAuthNoStore(w)
 	auth.ClearSessionCookie(w, c.config.Cookie)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -176,11 +227,12 @@ func (c *AuthController) exchangeCode(ctx context.Context, code, verifier string
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return auth.TokenResponse{}, errors.New("cannot exchange authorization code")
+		return auth.TokenResponse{}, fmt.Errorf("cannot exchange authorization code: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return auth.TokenResponse{}, errors.New("cannot exchange authorization code")
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return auth.TokenResponse{}, fmt.Errorf("cannot exchange authorization code: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var token auth.TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil || token.IDToken == "" {
@@ -195,4 +247,9 @@ func cookieValue(r *http.Request, name string) string {
 		return ""
 	}
 	return cookie.Value
+}
+
+func setAuthNoStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 }

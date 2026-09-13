@@ -11,7 +11,8 @@ import (
 var ErrCannotFollowSelf = apperrors.BadParam.Wrap(nil, "cannot follow yourself")
 
 type FollowService struct {
-	repository FollowRepository
+	repository          FollowRepository
+	notificationService *NotificationService
 }
 
 type FollowRepository interface {
@@ -20,15 +21,25 @@ type FollowRepository interface {
 	ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error)
 }
 
-func NewFollowService(repository FollowRepository) *FollowService {
-	return &FollowService{repository: repository}
+func NewFollowService(repository FollowRepository, notificationService ...*NotificationService) *FollowService {
+	service := &FollowService{repository: repository}
+	if len(notificationService) > 0 {
+		service.notificationService = notificationService[0]
+	}
+	return service
 }
 
 func (s *FollowService) Follow(ctx context.Context, followerID, followeeID string) error {
 	if err := validateFollowRelation(followerID, followeeID); err != nil {
 		return err
 	}
-	return s.repository.Follow(ctx, followerID, followeeID)
+	if err := s.repository.Follow(ctx, followerID, followeeID); err != nil {
+		return err
+	}
+	if s.notificationService == nil {
+		return nil
+	}
+	return s.notificationService.CreateFollow(ctx, followeeID, followerID)
 }
 
 func (s *FollowService) Unfollow(ctx context.Context, followerID, followeeID string) error {

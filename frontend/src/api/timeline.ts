@@ -28,6 +28,7 @@ export async function fetchTimeline(feed: TimelineFeed): Promise<Post[]> {
 function toPost(post: TimelinePostResponse): Post {
   return {
     id: post.id,
+    authorId: post.author.id,
     name: post.author.displayName,
     handle: `@${post.author.handle}`,
     body: post.content,

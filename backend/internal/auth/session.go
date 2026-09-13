@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var randomReader = rand.Reader
+
 const (
 	SessionCookieName = "x_clone_session"
 	StateCookieName   = "x_clone_oauth_state"
@@ -27,7 +29,7 @@ type CookieConfig struct {
 
 func NewRandomToken() (string, error) {
 	var value [32]byte
-	if _, err := rand.Read(value[:]); err != nil {
+	if _, err := randomReader.Read(value[:]); err != nil {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(value[:]), nil

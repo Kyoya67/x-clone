@@ -2,37 +2,43 @@ name: Backend CD
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Backend CI
-    types:
-      - completed
+    inputs:
+      environment:
+        description: Deploy target
+        required: true
+        type: choice
+        options:
+          - stg
+          - prd
+  push:
     branches:
       - develop
       - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-cd.yml'
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  DEPLOY_SHA: ${{ github.sha }}
   AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
-  AWS_ACCOUNT_ID: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
+  AWS_ROLE_ARN: ${{ secrets[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AWS_ROLE_ARN_PRD' || 'AWS_ROLE_ARN_STG'] }}
+  AWS_ACCOUNT_ID: ${{ vars[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'AWS_ACCOUNT_ID_PRD' || 'AWS_ACCOUNT_ID_STG'] }}
   ECS_CLUSTER_NAME: ${{ vars.ECS_CLUSTER_NAME }}
   ECS_SERVICE_NAME: ${{ vars.ECS_SERVICE_NAME }}
   API_TASK_FAMILY: ${{ vars.API_TASK_FAMILY }}
   MIGRATION_TASK_FAMILY: ${{ vars.MIGRATION_TASK_FAMILY }}
   API_ECR_REPOSITORY: ${{ vars.API_ECR_REPOSITORY }}
   MIGRATION_ECR_REPOSITORY: ${{ vars.MIGRATION_ECR_REPOSITORY }}
-  API_HEALTH_URL: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
-  DEPLOY_ENV: ${{ vars[((github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || github.ref_name == 'main') && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
+  API_HEALTH_URL: ${{ vars[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'API_HEALTH_URL_PRD' || 'API_HEALTH_URL_STG'] }}
+  DEPLOY_ENV: ${{ vars[((github.event_name == 'push' && github.ref_name == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prd')) && 'DEPLOY_ENV_PRD' || 'DEPLOY_ENV_STG'] }}
 
 jobs:
   build-images:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: backend
