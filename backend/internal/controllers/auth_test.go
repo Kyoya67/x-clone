@@ -19,8 +19,9 @@ import (
 const testAuthSessionSecret = "test-auth-session-secret"
 
 type fakeAuthUserService struct {
-	user models.User
-	err  error
+	user          models.User
+	updateRequest models.UpdateUserProfileRequest
+	err           error
 }
 
 func (s fakeAuthUserService) FindOrCreateByOIDC(context.Context, string, string, string) (models.User, error) {
@@ -31,7 +32,8 @@ func (s fakeAuthUserService) FindByID(context.Context, string) (models.User, err
 	return s.user, s.err
 }
 
-func (s fakeAuthUserService) UpdateProfile(context.Context, string, models.UpdateUserProfileRequest) (models.User, error) {
+func (s fakeAuthUserService) UpdateProfile(_ context.Context, _ string, request models.UpdateUserProfileRequest) (models.User, error) {
+	s.updateRequest = request
 	return s.user, s.err
 }
 
@@ -352,6 +354,68 @@ func TestAuthMeRequiresLogin(t *testing.T) {
 
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthUpdateMeReturnsUpdatedUser(t *testing.T) {
+	user := models.User{ID: "user-1", Handle: "kyoya_dev", DisplayName: "京谷"}
+	controller := NewAuthController(AuthConfig{}, fakeAuthUserService{user: user})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/auth/me", strings.NewReader(`{"handle":"kyoya_dev","displayName":"京谷","bio":"bio"}`))
+	request = request.WithContext(auth.WithUserID(request.Context(), user.ID))
+
+	controller.UpdateMe(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
+	}
+	if !strings.Contains(response.Body.String(), `"handle":"kyoya_dev"`) {
+		t.Fatalf("expected updated user body, got %s", response.Body.String())
+	}
+}
+
+func TestAuthUpdateMeRejectsInvalidJSON(t *testing.T) {
+	controller := NewAuthController(AuthConfig{}, fakeAuthUserService{})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/auth/me", strings.NewReader(`{`))
+	request = request.WithContext(auth.WithUserID(request.Context(), "user-1"))
+
+	controller.UpdateMe(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
+
+func TestAuthUpdateMeRequiresLogin(t *testing.T) {
+	controller := NewAuthController(AuthConfig{}, fakeAuthUserService{})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/auth/me", strings.NewReader(`{"handle":"kyoya_dev","displayName":"京谷"}`))
+
+	controller.UpdateMe(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}
+
+func TestAuthUpdateMeReturnsServiceError(t *testing.T) {
+	controller := NewAuthController(AuthConfig{}, fakeAuthUserService{err: errors.New("secret database details")})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/auth/me", strings.NewReader(`{"handle":"kyoya_dev","displayName":"京谷"}`))
+	request = request.WithContext(auth.WithUserID(request.Context(), "user-1"))
+
+	controller.UpdateMe(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, response.Code)
+	}
+	if strings.Contains(response.Body.String(), "secret database details") {
+		t.Fatalf("internal service error leaked: %s", response.Body.String())
 	}
 }
 

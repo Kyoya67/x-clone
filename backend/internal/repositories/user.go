@@ -98,5 +98,9 @@ func handleFromOIDC(subject, email string) string {
 	if len(suffix) > 8 {
 		suffix = suffix[:8]
 	}
-	return fmt.Sprintf("user_%s", suffix)[:13]
+	handle := fmt.Sprintf("user_%s", suffix)
+	if len(handle) > 13 {
+		return handle[:13]
+	}
+	return handle
 }

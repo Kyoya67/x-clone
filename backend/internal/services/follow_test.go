@@ -51,6 +51,39 @@ func TestFollowServiceFollow(t *testing.T) {
 	}
 }
 
+func TestFollowServiceFollowCreatesNotification(t *testing.T) {
+	repository := &fakeFollowRepository{}
+	notificationRepository := &fakeNotificationRepository{}
+	service := NewFollowService(repository, NewNotificationService(notificationRepository))
+
+	if err := service.Follow(context.Background(), "follower-1", "followee-1"); err != nil {
+		t.Fatal(err)
+	}
+	if !notificationRepository.followCalled || notificationRepository.recipientID != "followee-1" || notificationRepository.actorID != "follower-1" {
+		t.Fatalf("unexpected notification call: %+v", notificationRepository)
+	}
+}
+
+func TestFollowServiceFollowReturnsRepositoryError(t *testing.T) {
+	expected := errors.New("database failed")
+	service := NewFollowService(&fakeFollowRepository{err: expected}, NewNotificationService(&fakeNotificationRepository{}))
+
+	err := service.Follow(context.Background(), "follower-1", "followee-1")
+	if !errors.Is(err, expected) {
+		t.Fatalf("expected repository error, got %v", err)
+	}
+}
+
+func TestFollowServiceFollowReturnsNotificationError(t *testing.T) {
+	expected := errors.New("notification failed")
+	service := NewFollowService(&fakeFollowRepository{}, NewNotificationService(&fakeNotificationRepository{err: expected}))
+
+	err := service.Follow(context.Background(), "follower-1", "followee-1")
+	if !errors.Is(err, expected) {
+		t.Fatalf("expected notification error, got %v", err)
+	}
+}
+
 func TestFollowServiceFollowRejectsSelfFollow(t *testing.T) {
 	repository := &fakeFollowRepository{}
 	service := NewFollowService(repository)
@@ -101,6 +134,16 @@ func TestFollowServiceUnfollowReturnsNotFound(t *testing.T) {
 	}
 	if appErr.Message != "resource not found" {
 		t.Fatalf("unexpected message: %s", appErr.Message)
+	}
+}
+
+func TestFollowServiceUnfollowReturnsRepositoryError(t *testing.T) {
+	expected := errors.New("database failed")
+	service := NewFollowService(&fakeFollowRepository{err: expected})
+
+	err := service.Unfollow(context.Background(), "follower-1", "followee-1")
+	if !errors.Is(err, expected) {
+		t.Fatalf("expected repository error, got %v", err)
 	}
 }
 
