@@ -13,6 +13,13 @@
 | リライト        | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応                                                                                                               |
 | API転送         | /api/ → https://api-v1.stg.x-clone.kyo8.dev/       | /apiを除去してHTTPSで転送。SPAルールより先に評価。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。 |
 
+### HTTPS証明書
+
+| 用途       | ドメイン                    | 管理元            | Terraform上の扱い                                             |
+| ---------- | --------------------------- | ----------------- | ------------------------------------------------------------- |
+| フロント用 | stg.x-clone.kyo8.dev        | Amplify管理証明書 | aws_amplify_domain_associationで管理。検証CNAMEはRoute 53管理 |
+| API用      | api-v1.stg.x-clone.kyo8.dev | ACM証明書         | modules/acm_certificateで管理。検証CNAMEはRoute 53管理        |
+
 ### VPC・サブネットとリソース配置
 
 ALBは実環境へ反映済み。APIドメインの/healthでHTTPS応答を確認済み。
@@ -42,7 +49,7 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 | ------------------ | ---------------------------------------------------------------------------- |
 | APIドメイン        | api-v1.stg.x-clone.kyo8.dev                                                  |
 | Route 53           | 既存のstg.x-clone.kyo8.devゾーンをimportして管理し、ALBへのAエイリアスを作成 |
-| ACM                | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEもTerraformで作成   |
+| ACM                | 東京リージョンでAPIドメインの証明書を作成。DNS検証用CNAMEはRoute 53で作成    |
 | ALB api            | HTTPS 443でTLSを終端。HTTP 80はHTTPSへリダイレクト                           |
 | ターゲットグループ | Fargate用のip形式、HTTP 8080。タスクの登録・解除はECSサービスが実施          |
 | ECSサービス api    | APIコンテナの8080へ転送。起動後60秒はヘルスチェック失敗を猶予                |
@@ -50,19 +57,8 @@ VPC（10.0.0.0/16）の中に、次の4つのサブネットがある。
 
 外部クライアント → HTTPS → ALB → HTTP 8080 → privateサブネットのAPIタスク。
 TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALBからタスク間はHTTPで、SGで通信元を制限する。
-ホストゾーンはmodules/route53、ALB・ACM・DNSレコードはmodules/alb、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
+ホストゾーンとDNSレコードはmodules/route53、ALBはmodules/alb、API用証明書はmodules/acm_certificate、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
 ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplifyのリライトで行う。
-
-反映時はstgで次を実行し、既存リソースの不要な削除・再作成がないことをplanで確認する。
-
-```bash
-AWS_PROFILE=x-clone-terraform-stg terraform init
-AWS_PROFILE=x-clone-terraform-stg make plan
-AWS_PROFILE=x-clone-terraform-stg make apply
-curl --fail --show-error https://api-v1.stg.x-clone.kyo8.dev/health
-```
-
-証明書のDNS検証完了後にHTTPSリスナーを作り、その後ECSサービスを更新する。/health成功だけではRDSの継続的な接続確認にならないため、後続で一覧取得・投稿による読み書きを確認する。
 
 ### IAMユーザー・ロール・ポリシー
 
