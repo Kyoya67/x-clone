@@ -1,7 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { fetchTimeline } from '../api/timeline'
+import { Feed } from '../components/Feed'
 import { ContentPage } from './ContentPage'
 import { currentUser } from '../config/currentUser'
 import { useOptionalAuth } from '../state/AuthContext'
+import { Post } from '../types/post'
 
 export function ProfilePage() {
   const auth = useOptionalAuth()
@@ -14,11 +17,41 @@ export function ProfilePage() {
   const [message, setMessage] = useState('')
   const [isEditing, setIsEditing] = useState(user?.needsProfileSetup ?? false)
   const [isSaving, setIsSaving] = useState(false)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+  const [postsError, setPostsError] = useState('')
 
   useEffect(() => {
     setForm({ handle, displayName, bio })
     setIsEditing(user?.needsProfileSetup ?? false)
   }, [handle, displayName, bio, user?.needsProfileSetup])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPosts = async () => {
+      setIsLoadingPosts(true)
+      setPostsError('')
+      try {
+        const timelinePosts = await fetchTimeline('for-you')
+        if (!cancelled) {
+          setPosts(timelinePosts.filter((post) => post.handle === `@${handle}`))
+        }
+      } catch {
+        if (!cancelled) {
+          setPosts([])
+          setPostsError('ポストの取得に失敗しました。時間をおいて再度お試しください。')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPosts(false)
+      }
+    }
+
+    void loadPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [handle])
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault()
@@ -46,6 +79,15 @@ export function ProfilePage() {
       setIsSaving(false)
     }
   }
+
+  const toggleLike = (id: string) =>
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === id
+          ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
+          : post,
+      ),
+    )
 
   return (
     <ContentPage title="プロフィール">
@@ -108,6 +150,14 @@ export function ProfilePage() {
           </>
         )}
       </div>
+      {postsError && <p role="alert">{postsError}</p>}
+      {isLoadingPosts ? (
+        <p role="status">ポストを読み込んでいます。</p>
+      ) : posts.length === 0 ? (
+        <p>表示する投稿はありません。</p>
+      ) : (
+        <Feed posts={posts} onToggleLike={toggleLike} currentUserHandle={handle} />
+      )}
     </ContentPage>
   )
 }
