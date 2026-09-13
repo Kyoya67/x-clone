@@ -51,7 +51,6 @@ export function Sidebar() {
         <NavLink className="nav-item" to="/notifications">
           <Icon name="bell" />
           <span>通知</span>
-          <span className="badge">3</span>
         </NavLink>
         <NavLink className="nav-item" to="/messages">
           <Icon name="chat" />
