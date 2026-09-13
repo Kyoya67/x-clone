@@ -177,7 +177,57 @@ Codexの提案をそのまま採用せず、実装内容を確認し、テスト
 
 AWSリソース構成、セキュリティグループ、IAM、DBユーザー、Secret管理方針の詳細は[infrastructure/ARCHITECTURE.md](infrastructure/ARCHITECTURE.md)にまとめる。
 
-## 5. システム構成とデータモデル
+## 5. CI/CD
+
+### 全体方針
+
+CIとCDは連結する。Pull Requestとdevelop/mainへのpushではCIを実行し、CDはCI workflowの成功後に起動する。これにより、CIが失敗したcommitをデプロイしない。
+
+| Workflow | 起動条件 | 主な処理 |
+| -------- | -------- | -------- |
+| .github/workflows/frontend-ci.yml | frontend変更を含むPull Request、develop/mainへのpush | frontendのformat:check・test・build |
+| .github/workflows/backend-ci.yml | backend変更を含むPull Request、develop/mainへのpush | backendのgofmt・go test・go vet |
+| .github/workflows/frontend-cd.yml | develop/mainのfrontend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、frontendをbuildしてdistのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | develop/mainのbackend CI成功後、手動実行 | CIで検証済みのcommitをcheckoutし、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+
+### 環境切り替え
+
+developはstg環境、mainはprd環境へデプロイする。IAMロールARNはGitHub Secretsで管理し、それ以外の環境値はGitHub Variablesで管理する。
+
+| 種別 | 名前 | 用途 |
+| ---- | ---- | ---- |
+| Secret | AWS_ROLE_ARN_STG / AWS_ROLE_ARN_PRD | GitHub ActionsがOIDCで引き受ける環境別IAMロールARN |
+| Variable | AWS_ACCOUNT_ID_STG / AWS_ACCOUNT_ID_PRD | 環境別AWSアカウントID。ECRレジストリURLを組み立てる |
+| Variable | AWS_REGION | AWSリージョン |
+| Variable | AMPLIFY_APP_ID_STG / AMPLIFY_APP_ID_PRD | 環境別Amplify AppのID |
+| Variable | AMPLIFY_BRANCH_NAME | Amplify Branch名 |
+| Variable | ECS_CLUSTER_NAME | ECSクラスター名 |
+| Variable | ECS_SERVICE_NAME | ECSサービス名 |
+| Variable | API_TASK_FAMILY | APIタスク定義family |
+| Variable | MIGRATION_TASK_FAMILY | マイグレーションタスク定義family |
+| Variable | API_ECR_REPOSITORY | API用ECRリポジトリ名 |
+| Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名 |
+| Variable | API_HEALTH_URL_STG / API_HEALTH_URL_PRD | 環境別API health check URL |
+| Variable | DEPLOY_ENV_STG / DEPLOY_ENV_PRD | サブネット・SG取得用の環境名 |
+
+### backend CDの実行順序
+
+backend CDでは、DockerfileからAPI用イメージとマイグレーション用イメージを作成する。2つのイメージビルドは同じDockerfileのbuild stageを通るため、BuildKitのキャッシュを利用しつつ直列で実行する。
+
+イメージ作成後は、マイグレーション実行とAPIタスク定義登録を並行実行する。両方が成功してからECSサービスを更新する。
+
+```text
+Backend CI成功
+  ↓
+build-images
+  ↓
+  ├─ run-migration
+  └─ register-api-task-definition
+        ↓
+update-api-service
+```
+
+## 6. システム構成とデータモデル
 
 ### バックエンドの構成
 
@@ -239,4 +289,4 @@ erDiagram
 
 タイムライン取得時は、`posts.author_id`と`users.id`を結合して投稿者情報を取得する。`following`タイムラインでは、さらに`follows.followee_id`と投稿者IDを結合し、`follows.follower_id`が現在のユーザーである投稿だけを残す。現時点の`for-you`は推薦機能ではなく、全投稿を新しい順で表示する。
 
-## 6. 今後の拡張性や運用を見据えた懸念点
+## 7. 今後の拡張性や運用を見据えた懸念点
