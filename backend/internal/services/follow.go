@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
 )
@@ -33,7 +35,13 @@ func (s *FollowService) Unfollow(ctx context.Context, followerID, followeeID str
 	if err := validateFollowRelation(followerID, followeeID); err != nil {
 		return err
 	}
-	return s.repository.Unfollow(ctx, followerID, followeeID)
+	if err := s.repository.Unfollow(ctx, followerID, followeeID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apperrors.NotFound.Wrap(err, "resource not found")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *FollowService) ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error) {

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"regexp"
 	"testing"
@@ -74,6 +75,28 @@ func TestFollowRepositoryUnfollow(t *testing.T) {
 	repository := NewFollowRepository(db)
 	if err := repository.Unfollow(context.Background(), "follower-1", "followee-1"); err != nil {
 		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFollowRepositoryUnfollowReturnsNoRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM follows
+		WHERE follower_id = $1 AND followee_id = $2`)).
+		WithArgs("follower-1", "followee-1").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	repository := NewFollowRepository(db)
+	err = repository.Unfollow(context.Background(), "follower-1", "followee-1")
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("expected no rows error, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

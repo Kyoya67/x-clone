@@ -2,8 +2,11 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
+
+	"github.com/Kaminashi-Inc/ENG-1103_Kyoya67/backend/internal/apperrors"
 )
 
 type fakeFollowRepository struct {
@@ -83,6 +86,21 @@ func TestFollowServiceUnfollowRejectsSelfFollow(t *testing.T) {
 	}
 	if repository.unfollowCalled {
 		t.Fatal("repository should not be called")
+	}
+}
+
+func TestFollowServiceUnfollowReturnsNotFound(t *testing.T) {
+	repository := &fakeFollowRepository{err: sql.ErrNoRows}
+	service := NewFollowService(repository)
+
+	err := service.Unfollow(context.Background(), "follower-1", "followee-1")
+
+	var appErr *apperrors.Error
+	if !errors.As(err, &appErr) || appErr.ErrCode != string(apperrors.NotFound) {
+		t.Fatalf("expected not found error, got %v", err)
+	}
+	if appErr.Message != "resource not found" {
+		t.Fatalf("unexpected message: %s", appErr.Message)
 	}
 }
 

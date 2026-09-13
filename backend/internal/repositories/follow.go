@@ -22,10 +22,21 @@ func (r *FollowRepository) Follow(ctx context.Context, followerID, followeeID st
 }
 
 func (r *FollowRepository) Unfollow(ctx context.Context, followerID, followeeID string) error {
-	return r.execute(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		DELETE FROM follows
 		WHERE follower_id = $1 AND followee_id = $2
 	`, followerID, followeeID)
+	if err != nil {
+		return classifyPostgresError(err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return classifyPostgresError(err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *FollowRepository) ListFolloweeIDs(ctx context.Context, followerID string) ([]string, error) {
