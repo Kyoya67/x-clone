@@ -39,7 +39,8 @@ resource "aws_ecs_task_definition" "api" {
       { name = "AUTH_REDIRECT_URL", value = var.backend.auth.redirect_url },
       { name = "AUTH_POST_LOGIN_URL", value = var.backend.auth.post_login_url },
       { name = "AUTH_COOKIE_DOMAIN", value = var.backend.auth.cookie_domain },
-      { name = "AUTH_COOKIE_SECURE", value = var.backend.auth.cookie_secure }
+      { name = "AUTH_COOKIE_SECURE", value = var.backend.auth.cookie_secure },
+      { name = "AUTH_COOKIE_NAME_PREFIX", value = var.backend.auth.cookie_prefix }
     ]
     secrets = [
       { name = "DB_USER", valueFrom = "${var.backend.database_secret_arn}:username::" },

@@ -102,9 +102,6 @@ export function Sidebar() {
       <div className="account-menu" ref={accountMenuRef}>
         {isAccountMenuOpen && (
           <div className="account-popover" role="menu" aria-label="アカウントメニュー">
-            <button type="button" role="menuitem">
-              既存のアカウントを追加
-            </button>
             {auth && (
               <button type="button" role="menuitem" onClick={() => void auth.logout()}>
                 @{handle}からログアウト

@@ -75,9 +75,9 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	auth.SetTemporaryCookie(w, auth.StateCookieName, state, c.config.Cookie)
-	auth.SetTemporaryCookie(w, auth.NonceCookieName, nonce, c.config.Cookie)
-	auth.SetTemporaryCookie(w, auth.PKCECookieName, verifier, c.config.Cookie)
+	auth.SetTemporaryCookie(w, c.config.Cookie.StateName(), state, c.config.Cookie)
+	auth.SetTemporaryCookie(w, c.config.Cookie.NonceName(), nonce, c.config.Cookie)
+	auth.SetTemporaryCookie(w, c.config.Cookie.PKCEName(), verifier, c.config.Cookie)
 
 	values := url.Values{}
 	values.Set("client_id", c.config.ClientID)
@@ -97,7 +97,7 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 
 	state := r.URL.Query().Get("state")
 	code := r.URL.Query().Get("code")
-	stateCookie := cookieValue(r, auth.StateCookieName)
+	stateCookie := cookieValue(r, c.config.Cookie.StateName())
 	if state == "" || code == "" || stateCookie != state {
 		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
 			fmt.Errorf("callback validation failed: state=%t code=%t state_cookie=%t state_match=%t", state != "", code != "", stateCookie != "", stateCookie == state),
@@ -105,8 +105,8 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	nonce := cookieValue(r, auth.NonceCookieName)
-	verifier := cookieValue(r, auth.PKCECookieName)
+	nonce := cookieValue(r, c.config.Cookie.NonceName())
+	verifier := cookieValue(r, c.config.Cookie.PKCEName())
 	if nonce == "" || verifier == "" {
 		apperrors.ErrorHandler(w, r, apperrors.BadParam.Wrap(
 			fmt.Errorf("callback temporary cookie missing: nonce=%t verifier=%t", nonce != "", verifier != ""),
@@ -136,9 +136,9 @@ func (c *AuthController) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auth.SetSessionCookie(w, session, c.config.Cookie)
-	auth.ClearTemporaryCookie(w, auth.StateCookieName, c.config.Cookie)
-	auth.ClearTemporaryCookie(w, auth.NonceCookieName, c.config.Cookie)
-	auth.ClearTemporaryCookie(w, auth.PKCECookieName, c.config.Cookie)
+	auth.ClearTemporaryCookie(w, c.config.Cookie.StateName(), c.config.Cookie)
+	auth.ClearTemporaryCookie(w, c.config.Cookie.NonceName(), c.config.Cookie)
+	auth.ClearTemporaryCookie(w, c.config.Cookie.PKCEName(), c.config.Cookie)
 	http.Redirect(w, r, c.config.PostLoginURL, http.StatusFound)
 }
 
@@ -192,18 +192,24 @@ func (c *AuthController) UpdateMe(w http.ResponseWriter, r *http.Request) {
 func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 	setAuthNoStore(w)
 	auth.ClearSessionCookie(w, c.config.Cookie)
+	auth.ClearLegacySessionCookie(w, c.config.Cookie)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (c *AuthController) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(auth.SessionCookieName)
+		cookie, err := r.Cookie(c.config.Cookie.SessionName())
+		if err != nil && c.config.Cookie.SessionName() != auth.SessionCookieName {
+			cookie, err = r.Cookie(auth.SessionCookieName)
+		}
 		if err != nil {
 			apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
 			return
 		}
 		userID, err := auth.VerifySession(cookie.Value, c.config.SessionSecret, c.now())
 		if err != nil {
+			auth.ClearSessionCookie(w, c.config.Cookie)
+			auth.ClearLegacySessionCookie(w, c.config.Cookie)
 			apperrors.ErrorHandler(w, r, apperrors.Unauthorized.Wrap(err, "login is required"))
 			return
 		}

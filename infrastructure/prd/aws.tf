@@ -183,6 +183,7 @@ module "ecs_task_definition" {
       post_login_url = "https://x-clone.kyo8.dev/"
       cookie_domain  = "x-clone.kyo8.dev"
       cookie_secure  = "true"
+      cookie_prefix  = "x_clone_prd"
     }
     log_group_name = module.cloudwatch_logs.name
   }
