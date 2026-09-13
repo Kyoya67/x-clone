@@ -207,6 +207,7 @@ func TestAuthCallbackSetsSessionAndRedirects(t *testing.T) {
 		TokenURL:      "https://example.com/oauth2/token",
 		PostLoginURL:  "https://example.com/",
 		SessionSecret: testAuthSessionSecret,
+		Cookie:        auth.CookieConfig{NamePrefix: "x_clone_stg"},
 	}, fakeAuthUserService{user: user})
 	controller.httpClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{
@@ -221,9 +222,9 @@ func TestAuthCallbackSetsSessionAndRedirects(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/auth/callback?state=state&code=code", nil)
-	request.AddCookie(&http.Cookie{Name: auth.StateCookieName, Value: "state"})
-	request.AddCookie(&http.Cookie{Name: auth.NonceCookieName, Value: "nonce"})
-	request.AddCookie(&http.Cookie{Name: auth.PKCECookieName, Value: "verifier"})
+	request.AddCookie(&http.Cookie{Name: controller.config.Cookie.StateName(), Value: "state"})
+	request.AddCookie(&http.Cookie{Name: controller.config.Cookie.NonceName(), Value: "nonce"})
+	request.AddCookie(&http.Cookie{Name: controller.config.Cookie.PKCEName(), Value: "verifier"})
 
 	controller.Callback(response, request)
 
@@ -235,7 +236,7 @@ func TestAuthCallbackSetsSessionAndRedirects(t *testing.T) {
 	}
 	hasSessionCookie := false
 	for _, cookie := range response.Result().Cookies() {
-		if cookie.Name == auth.SessionCookieName && cookie.Value != "" {
+		if cookie.Name == controller.config.Cookie.SessionName() && cookie.Value != "" {
 			hasSessionCookie = true
 		}
 	}
@@ -453,12 +454,12 @@ func TestAuthMiddlewareRequiresSessionCookie(t *testing.T) {
 func TestAuthMiddlewareRejectsInvalidSessionCookie(t *testing.T) {
 	controller := NewAuthController(AuthConfig{
 		SessionSecret: testAuthSessionSecret,
-		Cookie:        auth.CookieConfig{Domain: "example.com", Secure: true},
+		Cookie:        auth.CookieConfig{Domain: "example.com", Secure: true, NamePrefix: "x_clone_stg"},
 	}, fakeAuthUserService{})
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/private", nil)
-	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: "invalid"})
+	request.AddCookie(&http.Cookie{Name: controller.config.Cookie.SessionName(), Value: "invalid"})
 	controller.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Fatal("next handler should not be called")
 	})).ServeHTTP(response, request)
@@ -467,8 +468,40 @@ func TestAuthMiddlewareRejectsInvalidSessionCookie(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
 	}
 	cookies := response.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != auth.SessionCookieName || cookies[0].MaxAge != -1 || cookies[0].Domain != "example.com" {
+	if len(cookies) != 2 || cookies[0].Name != controller.config.Cookie.SessionName() || cookies[0].MaxAge != -1 || cookies[0].Domain != "example.com" {
 		t.Fatalf("expected cleared session cookie, got %#v", cookies)
+	}
+	if cookies[1].Name != auth.SessionCookieName || cookies[1].MaxAge != -1 || cookies[1].Domain != "example.com" {
+		t.Fatalf("expected cleared legacy session cookie, got %#v", cookies)
+	}
+}
+
+func TestAuthMiddlewareAcceptsLegacySessionCookieDuringMigration(t *testing.T) {
+	now := time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)
+	session, err := auth.SignSession("user-1", testAuthSessionSecret, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller := NewAuthController(AuthConfig{
+		SessionSecret: testAuthSessionSecret,
+		Cookie:        auth.CookieConfig{NamePrefix: "x_clone_stg"},
+	}, fakeAuthUserService{})
+	controller.now = func() time.Time { return now }
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/private", nil)
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+
+	controller.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, err := auth.UserID(r.Context())
+		if err != nil || userID != "user-1" {
+			t.Fatalf("expected user ID in context, got %q, err=%v", userID, err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})).ServeHTTP(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, response.Code)
 	}
 }
 

@@ -23,8 +23,37 @@ const (
 )
 
 type CookieConfig struct {
-	Domain string
-	Secure bool
+	Domain     string
+	Secure     bool
+	NamePrefix string
+}
+
+func (c CookieConfig) SessionName() string {
+	if c.NamePrefix == "" {
+		return SessionCookieName
+	}
+	return c.NamePrefix + "_session"
+}
+
+func (c CookieConfig) StateName() string {
+	if c.NamePrefix == "" {
+		return StateCookieName
+	}
+	return c.NamePrefix + "_oauth_state"
+}
+
+func (c CookieConfig) NonceName() string {
+	if c.NamePrefix == "" {
+		return NonceCookieName
+	}
+	return c.NamePrefix + "_oauth_nonce"
+}
+
+func (c CookieConfig) PKCEName() string {
+	if c.NamePrefix == "" {
+		return PKCECookieName
+	}
+	return c.NamePrefix + "_pkce_verifier"
 }
 
 func NewRandomToken() (string, error) {
@@ -71,7 +100,7 @@ func VerifySession(value, secret string, now time.Time) (string, error) {
 
 func SetSessionCookie(w http.ResponseWriter, value string, config CookieConfig) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     config.SessionName(),
 		Value:    value,
 		Path:     "/",
 		Domain:   config.Domain,
@@ -84,7 +113,7 @@ func SetSessionCookie(w http.ResponseWriter, value string, config CookieConfig) 
 
 func ClearSessionCookie(w http.ResponseWriter, config CookieConfig) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     config.SessionName(),
 		Value:    "",
 		Path:     "/",
 		Domain:   config.Domain,
@@ -93,6 +122,15 @@ func ClearSessionCookie(w http.ResponseWriter, config CookieConfig) {
 		Secure:   config.Secure,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func ClearLegacySessionCookie(w http.ResponseWriter, config CookieConfig) {
+	if config.SessionName() == SessionCookieName {
+		return
+	}
+	legacyConfig := config
+	legacyConfig.NamePrefix = ""
+	ClearSessionCookie(w, legacyConfig)
 }
 
 func SetTemporaryCookie(w http.ResponseWriter, name, value string, config CookieConfig) {

@@ -20,7 +20,9 @@ Controllerの依存先はFakeへ差し替え、HTTPリクエストに対する�
 - プロフィール更新の内部エラーを`500 Internal Server Error`へ変換し、詳細をレスポンスへ含めない
 - ログアウト時にsession Cookieを削除する
 - Middlewareでsession Cookieを検証し、ユーザーIDをcontextへ渡す
-- Middlewareで不正なsession Cookieを検出した場合にCookieを削除する
+- OAuth用の一時Cookieとsession Cookieを環境別のCookie名で扱う
+- Middlewareで不正なsession Cookieを検出した場合に環境別Cookieと旧Cookieを削除する
+- 移行期間中は旧Cookie名のsession Cookieも受け付ける
 - 認可コード交換でtoken endpointへ必要な値を送信し、`id_token`を取得する
 - token endpointの非`200 OK`レスポンスや不正なtokenレスポンスをエラーへ変換する
 
@@ -142,7 +144,9 @@ go tool cover -func=/tmp/controller-cover.out
 - 乱数生成失敗をエラーとして返す
 - sessionへ署名し、検証後にユーザーIDを取り出せる
 - 不正なsession、署名不一致、期限切れを拒否する
-- session Cookieと一時Cookieを設定・削除する
+- 環境別prefix付きでsession Cookieと一時Cookieを設定・削除する
+- prefix未設定時は旧Cookie名を維持する
+- 環境別Cookieへ移行した後に旧session Cookieを削除する
 
 ### カバレッジ結果
 
@@ -154,15 +158,20 @@ go tool cover -func=/tmp/controller-cover.out
 |            | fetchPublicKey       |      93.8% |
 |            | rsaPublicKey         |     100.0% |
 | pkce.go    | CodeChallenge        |     100.0% |
-| session.go | NewRandomToken       |     100.0% |
+| session.go | SessionName          |     100.0% |
+|            | StateName            |     100.0% |
+|            | NonceName            |      66.7% |
+|            | PKCEName             |      66.7% |
+|            | NewRandomToken       |     100.0% |
 |            | SignSession          |     100.0% |
 |            | VerifySession        |      93.8% |
 |            | SetSessionCookie     |     100.0% |
 |            | ClearSessionCookie   |     100.0% |
+|            | ClearLegacySessionCookie |  80.0% |
 |            | SetTemporaryCookie   |     100.0% |
 |            | ClearTemporaryCookie |     100.0% |
 |            | sign                 |     100.0% |
-| 合計       | -                    |      97.9% |
+| 合計       | -                    |      95.6% |
 
 計測コマンド：
 
