@@ -2,24 +2,6 @@
 
 ## 現在のAWSリソース構成
 
-### フロントエンド配信
-
-| リソース        | 名前・設定                                         | 用途                                                                                                                                              |
-| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Amplify Hosting | x-clone                                            | Viteの静的ファイルをHTTPS配信。VPC外のマネージドサービス                                                                                          |
-| Amplifyブランチ | stg                                                | Git連携なしでビルド成果物を手動アップロードする配信先                                                                                             |
-| 独自ドメイン    | stg.x-clone.kyo8.dev → stgブランチ                 | Amplify管理証明書でHTTPS配信。Route 53のAエイリアス・検証CNAMEをTerraform管理                                                                     |
-| ビルド          | ローカルのfrontend                                 | npm ci・npm run buildを実行し、distの中身をZIP化                                                                                                  |
-| リライト        | API・拡張子付きファイルを除く画面URL → /index.html | SPAの直接アクセス・再読み込みに対応                                                                                                               |
-| API転送         | /api/ → https://api-v1.stg.x-clone.kyo8.dev/       | /apiを除去してHTTPSで転送。SPAルールより先に評価。ブラウザは同じオリジンの/apiへアクセスするため、フロントのAPI用環境変数やCORS設定の追加は不要。 |
-
-### HTTPS証明書
-
-| 用途       | ドメイン                    | 管理元            | Terraform上の扱い                                             |
-| ---------- | --------------------------- | ----------------- | ------------------------------------------------------------- |
-| フロント用 | stg.x-clone.kyo8.dev        | Amplify管理証明書 | aws_amplify_domain_associationで管理。検証CNAMEはRoute 53管理 |
-| API用      | api-v1.stg.x-clone.kyo8.dev | ACM証明書         | modules/acm_certificateで管理。検証CNAMEはRoute 53管理        |
-
 ### VPC・サブネットとリソース配置
 
 ALBは実環境へ反映済み。APIドメインの/healthでHTTPS応答を確認済み。
@@ -60,17 +42,24 @@ TLS終端をALBに集約し、コンテナ側の証明書管理を省く。ALB�
 ホストゾーンとDNSレコードはmodules/route53、ALBはmodules/alb、API用証明書はmodules/acm_certificate、SGはmodules/security_group、サービスへの関連付けはmodules/ecs_service。
 ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplifyのリライトで行う。
 
+### HTTPS証明書
+
+| 用途       | ドメイン                    | 管理元            | Terraform上の扱い                                             |
+| ---------- | --------------------------- | ----------------- | ------------------------------------------------------------- |
+| フロント用 | stg.x-clone.kyo8.dev        | Amplify管理証明書 | aws_amplify_domain_associationで管理。検証CNAMEはRoute 53管理 |
+| API用      | api-v1.stg.x-clone.kyo8.dev | ACM証明書         | modules/acm_certificateで管理。検証CNAMEはRoute 53管理        |
+
 ### IAMユーザー・ロール・ポリシー
 
-| 利用者・AWSリソース | IAMユーザー／ロール名                    | 用途                                     | アタッチする権限ポリシー                     | 許可する操作・対象                                                                                   |
-| ------------------- | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 開発者PC            | x-clone-terraform-stg（IAMユーザー）     | Terraform・AWS CLI・DB管理コマンドの実行 | AdministratorAccess（AWS管理）               | 全AWS操作・全リソース（ポリシー上の許可。SCP等の制約は未確認）                                       |
-| ECS：api            | api-task-execution（実行ロール）         | ECS基盤によるコンテナ起動・ログ送信      | api-task-execution（カスタマー管理）         | ECR apiのイメージ取得<br>/ecs/backendへのログ送信<br>db/app_userのSecret取得                         |
-| ECS：api            | api-task（タスクロール）                 | APIプログラムのAWS操作用                 | なし                                         | AWS操作権限なし。DBの読み書きはapp_userのSQL権限                                                     |
-| ECS：db-migrator    | db-migrator-task-execution（実行ロール） | ECS基盤によるコンテナ起動・ログ送信      | db-migrator-task-execution（カスタマー管理） | ECR db-migratorのイメージ取得<br>/ecs/backend-migrationへのログ送信<br>db/migration_userのSecret取得 |
-| ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
-| EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
-| GitHub Actions     | github-actions-cd（ロール）              | CD workflowからAWS APIを実行             | github-actions-cd（カスタマー管理）          | GitHub OIDCによるAssumeRoleWithWebIdentity<br>Amplifyへのデプロイ作成・開始・確認<br>ECR api/db-migratorへのpush<br>ECSタスク定義登録・単発タスク起動・サービス更新<br>対象ECSロールのiam:PassRole |
+| 利用者・AWSリソース | IAMユーザー／ロール名                    | 用途                                     | アタッチする権限ポリシー                     | 許可する操作・対象                                                                                                                                                                                 |
+| ------------------- | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 開発者PC            | x-clone-terraform-stg（IAMユーザー）     | Terraform・AWS CLI・DB管理コマンドの実行 | AdministratorAccess（AWS管理）               | 全AWS操作・全リソース（ポリシー上の許可。SCP等の制約は未確認）                                                                                                                                     |
+| ECS：api            | api-task-execution（実行ロール）         | ECS基盤によるコンテナ起動・ログ送信      | api-task-execution（カスタマー管理）         | ECR apiのイメージ取得<br>/ecs/backendへのログ送信<br>db/app_userのSecret取得                                                                                                                       |
+| ECS：api            | api-task（タスクロール）                 | APIプログラムのAWS操作用                 | なし                                         | AWS操作権限なし。DBの読み書きはapp_userのSQL権限                                                                                                                                                   |
+| ECS：db-migrator    | db-migrator-task-execution（実行ロール） | ECS基盤によるコンテナ起動・ログ送信      | db-migrator-task-execution（カスタマー管理） | ECR db-migratorのイメージ取得<br>/ecs/backend-migrationへのログ送信<br>db/migration_userのSecret取得                                                                                               |
+| ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                                                                                                                   |
+| EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                                                                                                                          |
+| GitHub Actions      | github-actions-cd（ロール）              | CD workflowからAWS APIを実行             | github-actions-cd（カスタマー管理）          | GitHub OIDCによるAssumeRoleWithWebIdentity<br>Amplifyへのデプロイ作成・開始・確認<br>ECR api/db-migratorへのpush<br>ECSタスク定義登録・単発タスク起動・サービス更新<br>対象ECSロールのiam:PassRole |
 
 ### DBユーザー・Secret・実行場所の関係
 
