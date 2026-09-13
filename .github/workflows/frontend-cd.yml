@@ -1,0 +1,107 @@
+name: Frontend CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-cd.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+  AMPLIFY_APP_ID: ${{ vars.AMPLIFY_APP_ID }}
+  AMPLIFY_BRANCH_NAME: ${{ vars.AMPLIFY_BRANCH_NAME || 'stg' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Deploy to Amplify Hosting
+        run: |
+          set -euo pipefail
+          test -n "$AMPLIFY_APP_ID" || { echo 'AMPLIFY_APP_ID repository variable is required'; exit 1; }
+
+          zip_file="$(mktemp --suffix=.zip)"
+          trap 'rm -f -- "$zip_file" deployment.json job.json' EXIT
+
+          (cd dist && zip -qr "$zip_file" .)
+
+          aws amplify create-deployment \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH_NAME" \
+            --output json > deployment.json
+
+          upload_url="$(jq -r '.zipUploadUrl' deployment.json)"
+          job_id="$(jq -r '.jobId' deployment.json)"
+
+          curl --fail --silent --show-error \
+            --request PUT \
+            --upload-file "$zip_file" \
+            "$upload_url"
+
+          aws amplify start-deployment \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH_NAME" \
+            --job-id "$job_id"
+
+          for _ in {1..60}; do
+            aws amplify get-job \
+              --app-id "$AMPLIFY_APP_ID" \
+              --branch-name "$AMPLIFY_BRANCH_NAME" \
+              --job-id "$job_id" \
+              --output json > job.json
+
+            status="$(jq -r '.job.summary.status' job.json)"
+            case "$status" in
+              SUCCEED)
+                exit 0
+                ;;
+              FAILED | CANCELLED)
+                jq '.job.summary' job.json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+
+          echo 'Timed out waiting for Amplify deployment'
+          jq '.job.summary' job.json
+          exit 1

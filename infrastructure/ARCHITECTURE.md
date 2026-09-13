@@ -71,6 +71,32 @@ ALBでは/health・/postsなどをそのまま転送し、/apiの除去はAmplif
 | ECS：db-migrator    | db-migrator-task（タスクロール）         | マイグレーションプログラムのAWS操作用    | なし                                         | AWS操作権限なし。DB変更はmigration_userのSQL権限                                                     |
 | EC2：nat-instance   | nat-ssm（ロール）                        | SSM Agentの管理・通信                    | AmazonSSMManagedInstanceCore（AWS管理）      | SSMへの情報登録・管理用通信。DB操作・Secret取得の権限なし                                            |
 
+### CD
+
+| Workflow | 起動条件 | 主な処理 |
+| -------- | -------- | -------- |
+| .github/workflows/frontend-cd.yml | developへのpush、手動実行 | frontendのformat:check・test・buildを実行し、distのZIPをAmplify Hostingへデプロイ |
+| .github/workflows/backend-cd.yml | developへのpush、手動実行 | backendのgofmt・test・vetを実行し、API・db-migratorイメージをECRへpush。db-migrator単発タスク実行後、ECSサービスapiを更新 |
+
+GitHub ActionsからAWSへの認証は、現時点ではGitHub Secretsに保存したAWSアクセスキーを使う。OIDCによる一時認証は後続で検討する。
+
+| 種別 | 名前 | 用途 |
+| ---- | ---- | ---- |
+| Secret | AWS_ACCESS_KEY_ID | GitHub ActionsからAWS APIを実行する |
+| Secret | AWS_SECRET_ACCESS_KEY | GitHub ActionsからAWS APIを実行する |
+| Variable | AWS_ACCOUNT_ID | ECRレジストリURLを組み立てる |
+| Variable | AWS_REGION | AWSリージョン。既定値はap-northeast-1 |
+| Variable | AMPLIFY_APP_ID | Amplify AppのID |
+| Variable | AMPLIFY_BRANCH_NAME | Amplify Branch名。既定値はstg |
+| Variable | ECS_CLUSTER_NAME | ECSクラスター名。既定値はx-clone |
+| Variable | ECS_SERVICE_NAME | ECSサービス名。既定値はapi |
+| Variable | API_TASK_FAMILY | APIタスク定義family。既定値はapi |
+| Variable | MIGRATION_TASK_FAMILY | マイグレーションタスク定義family。既定値はdb-migrator |
+| Variable | API_ECR_REPOSITORY | API用ECRリポジトリ名。既定値はapi |
+| Variable | MIGRATION_ECR_REPOSITORY | マイグレーション用ECRリポジトリ名。既定値はdb-migrator |
+| Variable | API_HEALTH_URL | ECSサービス更新後に確認するhealth check URL |
+| Variable | DEPLOY_ENV | サブネット・SG取得用の環境名。既定値はstg |
+
 ### DBユーザー・Secret・実行場所の関係
 
 | DBユーザー     | Secret            | 使う場所                                     | 用途                                                  |
