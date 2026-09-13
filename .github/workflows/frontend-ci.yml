@@ -10,7 +10,6 @@ on:
       - '.github/workflows/frontend-ci.yml'
   push:
     branches:
-      - 'feat/**'
       - develop
       - main
     paths:
