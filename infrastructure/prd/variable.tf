@@ -12,6 +12,7 @@ locals {
 
 variable "dbadmin_password" {
   type        = string
+  default     = "unused-prd-shutdown-1"
   sensitive   = true
   ephemeral   = true
   nullable    = false
@@ -53,6 +54,7 @@ variable "google_client_secret" {
 
 variable "auth_session_secret" {
   type        = string
+  default     = "unused-prd-shutdown-session-secret"
   sensitive   = true
   ephemeral   = true
   nullable    = false

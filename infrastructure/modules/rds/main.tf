@@ -48,7 +48,7 @@ resource "aws_db_instance" "this" {
   maintenance_window         = "sun:19:00-sun:20:00"
   auto_minor_version_upgrade = true
   copy_tags_to_snapshot      = true
-  deletion_protection        = true
+  deletion_protection        = false
   skip_final_snapshot        = false
   final_snapshot_identifier  = "${var.identifier}-final"
 

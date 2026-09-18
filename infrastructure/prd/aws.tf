@@ -23,6 +23,7 @@ module "internet_gateway" {
   tags   = local.common_tags
 }
 
+/*
 module "route_table" {
   source = "../modules/route_table"
 
@@ -48,6 +49,7 @@ module "route53" {
   amplify_domain_dns_record      = module.amplify.domain_dns_record
   tags                           = local.common_tags
 }
+*/
 
 module "security_group" {
   source = "../modules/security_group"
@@ -57,6 +59,7 @@ module "security_group" {
   tags                = local.common_tags
 }
 
+/*
 module "alb" {
   source = "../modules/alb"
 
@@ -78,6 +81,7 @@ module "api_certificate" {
   validation_record_fqdns = module.route53.api_certificate_validation_record_fqdns
   tags                    = local.common_tags
 }
+*/
 
 module "secrets_manager" {
   source = "../modules/secrets_manager"
@@ -115,6 +119,7 @@ module "cognito" {
   tags                 = local.common_tags
 }
 
+/*
 module "iam" {
   source = "../modules/iam"
 
@@ -150,6 +155,7 @@ module "ec2" {
   instance_profile_name = module.iam.nat_instance_profile_name
   tags                  = local.common_tags
 }
+*/
 
 module "ecr" {
   source      = "../modules/ecr"
@@ -163,6 +169,7 @@ module "ecs" {
   tags   = local.common_tags
 }
 
+/*
 module "ecs_task_definition" {
   source = "../modules/ecs_task_definition"
 
@@ -215,7 +222,9 @@ module "ecs_service" {
 
   depends_on = [module.iam, module.route_table, module.security_group]
 }
+*/
 
+/*
 module "rds" {
   source = "../modules/rds"
 
@@ -232,7 +241,9 @@ module "rds" {
   security_group_id = module.security_group.db_id
   tags              = local.common_tags
 }
+*/
 
+/*
 module "migration_logs" {
   source = "../modules/cloudwatch_logs"
   name   = "/ecs/backend-migration"
@@ -245,3 +256,4 @@ module "cloudwatch_logs" {
   name = "/ecs/backend"
   tags = local.common_tags
 }
+*/
